@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 156" fill="none">
+  <!-- Wavy 8-lobed sun rays -->
+  <path d="M 50 10 
+           C 58 10 64 16 67 22 
+           C 74 19 82 22 84 29 
+           C 87 35 84 43 89 48 
+           C 95 53 96 62 92 68 
+           C 87 75 87 83 82 88 
+           C 76 93 68 93 63 97 
+           C 57 101 49 101 44 98 
+           C 38 95 31 95 25 90 
+           C 19 85 19 76 15 70 
+           C 11 63 12 55 18 49 
+           C 23 44 21 35 25 29 
+           C 29 22 37 19 44 22 
+           C 47 16 52 10 50 10 Z" 
+        fill="#FFFFFF" 
+        stroke="#2D2200" 
+        stroke-width="5" 
+        stroke-linejoin="round" 
+        stroke-linecap="round"/>
+  <!-- Central Sun Face Circle -->
+  <circle cx="50" cy="57" r="27" fill="#FFFFFF" stroke="#2D2200" stroke-width="5"/>
+  <!-- Eyes -->
+  <circle cx="43" cy="54" r="3.5" fill="#2D2200"/>
+  <circle cx="57" cy="54" r="3.5" fill="#2D2200"/>
+  <!-- Smile -->
+  <path d="M 46 61 C 48 64 52 64 54 61" stroke="#2D2200" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- "Sunshine" Wordmark -->
+  <g font-family="'Nunito', 'Fredoka', system-ui, sans-serif" font-weight="900" font-size="16" fill="#FFFFFF" stroke="#2D2200" stroke-width="3.5" paint-order="stroke fill" text-anchor="middle">
+    <text x="50" y="124" letter-spacing="0.5">Sunshine</text>
+    <text x="50" y="146" letter-spacing="0.5">Brigade</text>
+  </g>
+</svg>

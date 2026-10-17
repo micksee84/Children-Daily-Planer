@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+@layer base {
+  @font-face {
+    font-family: 'Super Joyful';
+    src: url('/fonts/SuperJoyful.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --color-ink: #2D2200;
+    --color-paper: #FFFFFF;
+    --color-trace: #B6B2A6;
+    
+    --char-cream: #F2F2E2;
+    --char-yellow: #F2B800;
+    --char-blush: #F49AA0;
+    --char-orange: #EE7B22;
+    --char-green: #5BAE3C;
+    --char-blue: #009BD9;
+    --char-red: #E52311;
+  }
+
+  body {
+    background-color: #F8F7F4;
+    color: #2D2200;
+    font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Ink Sticker Title (stacked text-shadows, white fill, ink outline + flat drop shadow) */
+.ink-sticker-title {
+  font-family: 'Super Joyful', 'Fredoka', 'Nunito', sans-serif;
+  font-weight: 400;
+  line-height: 1.1;
+  padding-right: 0.1em;
+  color: #FFFFFF;
+  text-shadow: 
+    0.032em 0 0 #2D2200, 
+    -0.032em 0 0 #2D2200, 
+    0 0.032em 0 #2D2200, 
+    0 -0.032em 0 #2D2200,
+    0.023em 0.023em 0 #2D2200, 
+    -0.023em 0.023em 0 #2D2200, 
+    0.023em -0.023em 0 #2D2200, 
+    -0.023em -0.023em 0 #2D2200,
+    0.06em 0.06em 0 #2D2200, 
+    0.092em 0.06em 0 #2D2200, 
+    0.06em 0.092em 0 #2D2200, 
+    0.085em 0.085em 0 #2D2200;
+}
+
+/* Ink Die-Cut (for small headers 24–36px, e.g. day names) */
+.ink-die-cut {
+  font-family: 'Super Joyful', 'Fredoka', 'Nunito', sans-serif;
+  font-weight: 700;
+  color: #2D2200;
+  text-shadow: 
+    0.032em 0 0 #FFFFFF, 
+    -0.032em 0 0 #FFFFFF, 
+    0 0.032em 0 #FFFFFF, 
+    0 -0.032em 0 #FFFFFF,
+    0.023em 0.023em 0 #FFFFFF, 
+    -0.023em 0.023em 0 #FFFFFF, 
+    0.023em -0.023em 0 #FFFFFF, 
+    -0.023em -0.023em 0 #FFFFFF,
+    0.07em 0.07em 0 #2D2200, 
+    0.09em 0.07em 0 #2D2200, 
+    0.07em 0.09em 0 #2D2200, 
+    0.09em 0.09em 0 #2D2200;
+}
+
+/* Secondary Button and Badge flat shadow */
+.shadow-flat-ink {
+  box-shadow: 3px 3px 0 #2D2200;
+}
+
+.shadow-flat-ink-sm {
+  box-shadow: 2px 2px 0 #2D2200;
+}
+
+.shadow-flat-ink-lg {
+  box-shadow: 4px 4px 0 #2D2200;
+}
+
+/* Focus ring per spec: 3px ink outline, 4px offset */
+.focus-ink {
+  outline: none;
+}
+.focus-ink:focus-visible {
+  outline: 3px solid #2D2200;
+  outline-offset: 4px;
+}
+
+/* Dyslexia friendly font switch */
+.font-dyslexia {
+  font-family: 'Atkinson Hyperlegible', sans-serif !important;
+}
+
+/* Custom dashed trace pattern */
+.border-dashed-trace {
+  border-style: dashed;
+  border-color: #B6B2A6;
+  border-image: repeating-linear-gradient(to right, #B6B2A6 0, #B6B2A6 12px, transparent 12px, transparent 24px) 1;
+}
+
+/* Print Styles */
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 0;
+  }
+
+  body {
+    background: #FFFFFF !important;
+    color: #2D2200 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-page-container {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 816px !important;
+    height: 1056px !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+    break-after: avoid !important;
+    transform: none !important;
+    transform-origin: top left !important;
+  }
+
+  .print-page-container.landscape {
+    width: 1056px !important;
+    height: 816px !important;
+  }
+}
