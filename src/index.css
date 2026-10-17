@@ -1,12 +1,16 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+}
+
 @layer base {
   @font-face {
     font-family: 'Super Joyful';
-    src: url('/fonts/SuperJoyful.ttf') format('truetype');
+    src: url('./assets/fonts/SuperJoyful.ttf') format('truetype');
     font-weight: 400;
     font-style: normal;
-    font-display: swap;
+    font-display: block;
   }
 
   :root {
@@ -26,7 +30,7 @@
   body {
     background-color: #F8F7F4;
     color: #2D2200;
-    font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+    font-family: 'Nunito', ui-sans-serif, system-ui, -apple-system, sans-serif;
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
@@ -35,7 +39,7 @@
 
 /* Ink Sticker Title (stacked text-shadows, white fill, ink outline + flat drop shadow) */
 .ink-sticker-title {
-  font-family: 'Super Joyful', 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Super Joyful', 'Nunito', sans-serif;
   font-weight: 400;
   line-height: 1.1;
   padding-right: 0.1em;
@@ -57,8 +61,8 @@
 
 /* Ink Die-Cut (for small headers 24–36px, e.g. day names) */
 .ink-die-cut {
-  font-family: 'Super Joyful', 'Fredoka', 'Nunito', sans-serif;
-  font-weight: 700;
+  font-family: 'Super Joyful', 'Nunito', sans-serif;
+  font-weight: 400;
   color: #2D2200;
   text-shadow: 
     0.032em 0 0 #FFFFFF, 
@@ -109,40 +113,44 @@
   border-image: repeating-linear-gradient(to right, #B6B2A6 0, #B6B2A6 12px, transparent 12px, transparent 24px) 1;
 }
 
-/* Print Styles */
-@media print {
-  @page {
-    size: letter portrait;
-    margin: 0;
-  }
+/* Print Styles
+   On screen the print copy (.print-root, rendered by App into <body>) is hidden.
+   In print the whole editor (#root) is hidden and only that copy prints, at true
+   Letter size with no zoom, scrolling or editor chrome around it. The @page size
+   and orientation are set from the plan by App. */
+.print-root {
+  display: none;
+}
 
+@media print {
+  html,
   body {
     background: #FFFFFF !important;
-    color: #2D2200 !important;
-    padding: 0 !important;
     margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  #root {
+    display: none !important;
+  }
+
+  .print-root {
+    display: block !important;
   }
 
   .no-print {
     display: none !important;
   }
 
-  .print-page-container {
+  .print-root .print-page-container {
     box-shadow: none !important;
     border: none !important;
     margin: 0 !important;
-    padding: 0 !important;
-    width: 816px !important;
-    height: 1056px !important;
-    page-break-after: avoid !important;
-    page-break-before: avoid !important;
-    break-after: avoid !important;
     transform: none !important;
-    transform-origin: top left !important;
-  }
-
-  .print-page-container.landscape {
-    width: 1056px !important;
-    height: 816px !important;
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

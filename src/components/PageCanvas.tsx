@@ -8,14 +8,7 @@ import { WeeklyPlannerView } from './WeeklyPlannerView';
 import { ChecklistView } from './ChecklistView';
 import { FirstThenView } from './FirstThenView';
 
-interface GhostInfo {
-  timeStr: string;
-  dayKey?: ActivityBlock['dayOfWeek'];
-  isNoState?: boolean;
-  label?: string;
-  iconName?: string;
-  duration?: number;
-}
+import { GridGhost } from './ScheduleGrid';
 
 interface PageCanvasProps {
   plan: SchedulePlan;
@@ -23,7 +16,7 @@ interface PageCanvasProps {
   selectedBlockId: string | null;
   selectedStickerId: string | null;
   activeDropId?: string | null;
-  activeGhost?: GhostInfo | null;
+  ghost?: GridGhost | null;
   onSelectBlock: (block: ActivityBlock) => void;
   onSelectSticker: (id: string) => void;
   onDeselectAll: () => void;
@@ -33,8 +26,6 @@ interface PageCanvasProps {
   onUpdateSticker: (id: string, updates: Partial<CharacterSticker>) => void;
   onDeleteSticker: (id: string) => void;
   onUpdatePlan: (updates: Partial<SchedulePlan>) => void;
-  onAddBlockAtTime?: (timeStr: string) => void;
-  onAddBlockToDay?: (day: ActivityBlock['dayOfWeek']) => void;
   onAddStep?: () => void;
   onAssignToSlot?: (slot: 'first' | 'then') => void;
   isPrintMode?: boolean;
@@ -49,7 +40,7 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
       selectedBlockId,
       selectedStickerId,
       activeDropId = null,
-      activeGhost = null,
+      ghost = null,
       onSelectBlock,
       onSelectSticker,
       onDeselectAll,
@@ -59,8 +50,6 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
       onUpdateSticker,
       onDeleteSticker,
       onUpdatePlan,
-      onAddBlockAtTime,
-      onAddBlockToDay,
       onAddStep,
       onAssignToSlot,
       isPrintMode = false,
@@ -140,7 +129,7 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
     return (
       <div
         ref={setMergedRef}
-        id="print-sheet"
+        id={isPrintMode ? undefined : "print-sheet"}
         onClick={onDeselectAll}
         style={{
           width: `${pageWidth}px`,
@@ -165,12 +154,12 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
           {/* 1. TOP ROW:
               - Sunshine Brigade logo at left (28-32px tall, sb-logo.svg)
               - At right: "Name:" with inline edit or 1.5px write-on line */}
-          <div className="flex items-center justify-between shrink-0 h-10">
-            <SunshineLogo height={32} />
+          <div className="flex items-start justify-between shrink-0">
+            <SunshineLogo height={isLandscape ? 64 : 76} />
 
             {/* Child Name: Click to edit inline */}
-            <div className="flex items-baseline gap-2">
-              <span className="font-['Nunito'] font-extrabold text-[16px] text-[#2D2200]">
+            <div className="flex items-end gap-2 pt-2">
+              <span className="font-['Nunito'] font-extrabold text-[16px] leading-none text-[#2D2200]">
                 Name:
               </span>
               {isEditingName && !isPrintMode ? (
@@ -213,7 +202,7 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
                   }}
                   title="Click to type child's name (or print as write-on line)"
                   style={{ borderBottom: '1.5px solid #2D2200' }}
-                  className="w-36 sm:w-44 h-5 cursor-pointer no-print:hover:border-dashed no-print:hover:border-[#2D2200]"
+                  className="w-36 sm:w-44 h-[18px] cursor-pointer no-print:hover:border-dashed no-print:hover:border-[#2D2200]"
                 />
               )}
             </div>
@@ -303,7 +292,8 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
               <div
                 style={{
                   marginTop: '-16px',
-                  marginBottom: '-52px',
+                  // Landscape (weekly) has day names along the top of the frame; overlap less there.
+                  marginBottom: isLandscape ? '-14px' : '-52px',
                   zIndex: 25,
                 }}
                 className="shrink-0 drop-shadow-md"
@@ -321,6 +311,9 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
               borderRadius: '20px',
               borderWidth: '3px',
               backgroundColor: '#FFFFFF',
+              // Ink Style: the frame gets extra top padding where the character
+              // badge overlaps it, so the badge never covers the first row.
+              paddingTop: plan.showHeaderSticker && !isLandscape ? '36px' : undefined,
             }}
             className="flex-1 w-full bg-white overflow-hidden relative flex flex-col"
           >
@@ -329,12 +322,11 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
               <DailyRoutineView
                 plan={plan}
                 selectedBlockId={selectedBlockId}
-                activeGhost={activeGhost}
+                ghost={ghost}
                 onSelectBlock={onSelectBlock}
                 onUpdateBlock={onUpdateBlock}
                 onDuplicateBlock={onDuplicateBlock}
                 onDeleteBlock={onDeleteBlock}
-                onAddBlockAtTime={onAddBlockAtTime}
                 isPrintMode={isPrintMode}
               />
             )}
@@ -343,12 +335,11 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
               <WeeklyPlannerView
                 plan={plan}
                 selectedBlockId={selectedBlockId}
-                activeGhost={activeGhost}
+                ghost={ghost}
                 onSelectBlock={onSelectBlock}
                 onUpdateBlock={onUpdateBlock}
                 onDuplicateBlock={onDuplicateBlock}
                 onDeleteBlock={onDeleteBlock}
-                onAddBlockToDay={onAddBlockToDay}
                 isPrintMode={isPrintMode}
               />
             )}

@@ -1,4 +1,5 @@
 import { SchedulePlan } from '../types';
+import { DAILY_COLUMN, GridColumnKey, getOccupiedRows } from './grid';
 
 /**
  * ============================================================================
@@ -13,7 +14,8 @@ import { SchedulePlan } from '../types';
  * ============================================================================
  */
 
-export const MIN_ROW_HEIGHT_PX = 40;
+// Smallest row that still fits a one-row block's icon and label.
+export const MIN_ROW_HEIGHT_PX = 24;
 export const ROW_GAP_PX = 4;
 
 export const CHECKLIST_MAX_PORTRAIT = 10;
@@ -23,12 +25,9 @@ export const CHECKLIST_MAX_LANDSCAPE = 7;
  * Returns available vertical space inside the schedule frame in pixels.
  */
 export function getAvailableFrameHeight(orientation: 'portrait' | 'landscape'): number {
-  if (orientation === 'landscape') {
-    // 816px total - margins (60px) - top row (36px) - title (70px) - footer (30px) - internal padding (24px)
-    return 596;
-  }
-  // 1056px total - margins (80px) - top row (40px) - title (90px) - footer (36px) - internal padding (24px)
-  return 786;
+  // Measured from the page layout: Letter page minus margins, logo row, title,
+  // footer and the grid's own padding. Landscape also loses the day-name row.
+  return orientation === 'landscape' ? 470 : 712;
 }
 
 /**
@@ -106,44 +105,22 @@ export function getPlanCapacityInfo(plan: SchedulePlan): {
     };
   }
 
-  if (plan.template === 'daily') {
-    const totalMinutes = Math.max(0, (plan.timeEndHour - plan.timeStartHour) * 60);
-    const totalSlots = Math.max(1, Math.floor(totalMinutes / plan.timeIncrement));
-
-    // Calculate how many slots are covered by current blocks
-    let coveredMinutes = 0;
-    plan.blocks.forEach((b) => {
-      coveredMinutes += b.durationMinutes || plan.timeIncrement;
-    });
-    const usedSlots = Math.min(totalSlots, Math.ceil(coveredMinutes / plan.timeIncrement));
-
-    return {
-      usedCount: usedSlots,
-      totalCapacity: totalSlots,
-      isFull: usedSlots >= totalSlots,
-      label: `${usedSlots} of ${totalSlots} spaces used`,
-    };
+  // Daily and weekly: a grid. The page is full when no column has a free row.
+  const columns: GridColumnKey[] =
+    plan.template === 'weekly'
+      ? (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as GridColumnKey[]).slice(0, plan.weekdaysOnly ? 5 : 7)
+      : [DAILY_COLUMN];
+  let used = 0;
+  let total = 0;
+  for (const column of columns) {
+    const taken = getOccupiedRows(plan, column);
+    total += taken.length;
+    used += taken.filter(Boolean).length;
   }
-
-  // Weekly Planner: per-day or average
-  const totalDays = plan.weekdaysOnly ? 5 : 7;
-  const minutesPerDay = Math.max(0, (plan.timeEndHour - plan.timeStartHour) * 60);
-  const slotsPerDay = Math.max(1, Math.floor(minutesPerDay / plan.timeIncrement));
-  const totalSlotsAllDays = slotsPerDay * totalDays;
-
-  let totalCoveredMinutes = 0;
-  plan.blocks.forEach((b) => {
-    totalCoveredMinutes += b.durationMinutes || plan.timeIncrement;
-  });
-  const usedSlotsTotal = Math.min(
-    totalSlotsAllDays,
-    Math.ceil(totalCoveredMinutes / plan.timeIncrement)
-  );
-
   return {
-    usedCount: usedSlotsTotal,
-    totalCapacity: totalSlotsAllDays,
-    isFull: usedSlotsTotal >= totalSlotsAllDays,
-    label: `${usedSlotsTotal} of ${totalSlotsAllDays} slots used`,
+    usedCount: used,
+    totalCapacity: total,
+    isFull: used >= total,
+    label: `${used} of ${total} spaces used`,
   };
 }

@@ -1,27 +1,15 @@
 import React from 'react';
-import { useDroppable } from '@dnd-kit/core';
 import { ActivityBlock, SchedulePlan } from '../types';
-import { ActivityBlockCard } from './ActivityBlockCard';
-import { Plus } from 'lucide-react';
-
-interface GhostInfo {
-  timeStr: string;
-  dayKey?: ActivityBlock['dayOfWeek'];
-  isNoState?: boolean;
-  label?: string;
-  iconName?: string;
-  duration?: number;
-}
+import { ScheduleGrid, GridGhost } from './ScheduleGrid';
 
 interface WeeklyPlannerViewProps {
   plan: SchedulePlan;
   selectedBlockId: string | null;
-  activeGhost?: GhostInfo | null;
+  ghost?: GridGhost | null;
   onSelectBlock: (block: ActivityBlock) => void;
   onUpdateBlock: (id: string, updates: Partial<ActivityBlock>) => void;
   onDuplicateBlock: (block: ActivityBlock) => void;
   onDeleteBlock: (id: string) => void;
-  onAddBlockToDay?: (day: ActivityBlock['dayOfWeek']) => void;
   isPrintMode?: boolean;
 }
 
@@ -35,125 +23,57 @@ const ALL_DAYS: Array<{ key: NonNullable<ActivityBlock['dayOfWeek']>; label: str
   { key: 'sun', label: 'Sunday', short: 'Sun' },
 ];
 
-const DayColumnDroppable: React.FC<{
-  dayKey: ActivityBlock['dayOfWeek'];
-  isPrintMode?: boolean;
-  children: React.ReactNode;
-}> = ({ dayKey, isPrintMode, children }) => {
-  const { setNodeRef } = useDroppable({
-    id: `weekly-day-${dayKey}`,
-    data: {
-      type: 'weekly-day',
-      dayKey,
-    },
-    disabled: isPrintMode,
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      data-day={dayKey}
-      className="weekly-day-column flex-1 p-1.5 space-y-[4px] overflow-y-auto relative min-h-[140px]"
-    >
-      {children}
-    </div>
-  );
-};
-
+/** One grid column per day. Rows line up across the week so equal times sit side by side. */
 export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   plan,
   selectedBlockId,
-  activeGhost,
+  ghost,
   onSelectBlock,
   onUpdateBlock,
   onDuplicateBlock,
   onDeleteBlock,
-  onAddBlockToDay,
   isPrintMode = false,
 }) => {
   const days = plan.weekdaysOnly ? ALL_DAYS.slice(0, 5) : ALL_DAYS;
+  const useShort = days.length > 5;
 
   return (
-    <div className="w-full h-full flex flex-col p-2 sm:p-3 overflow-x-auto relative">
-      {/* Light dashed hint when planner is completely empty */}
-      {plan.blocks.length === 0 && !activeGhost && !isPrintMode && (
-        <div className="no-print absolute inset-8 border-[2px] border-dashed border-[#B6B2A6] rounded-[20px] flex flex-col items-center justify-center p-6 text-center pointer-events-none z-10">
-          <span className="font-['Nunito'] font-extrabold text-[16px] text-[#B6B2A6]">
-            Drag activities here to build your day.
-          </span>
-          <span className="font-['Nunito'] text-[13px] text-[#B6B2A6] mt-1">
-            Drag onto any day of the week to plan your child's schedule.
+    <div className="w-full h-full p-2.5 relative">
+      {plan.blocks.length === 0 && !ghost && !isPrintMode && (
+        <div className="no-print absolute inset-0 flex items-center justify-center p-6 text-center pointer-events-none z-10">
+          <span className="font-['Nunito'] font-extrabold text-[16px] text-[#2D2200]/60 bg-white px-3 py-1 rounded-full">
+            Drag activities onto any day to plan the week.
           </span>
         </div>
       )}
 
-      {/* Grid of days */}
       <div
-        className="grid h-full gap-2 relative z-0"
-        style={{
-          gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
-        }}
+        className="grid h-full gap-2"
+        style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}
       >
-        {days.map((day) => {
-          const dayBlocks = plan.blocks
-            .filter((b) => (b.dayOfWeek || 'mon') === day.key)
-            .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
-
-          const isGhostInThisDay = activeGhost && activeGhost.dayKey === day.key;
-
-          return (
-            <div
-              key={day.key}
-              className="flex flex-col h-full bg-white rounded-[16px] border-[2px] border-[#2D2200] overflow-hidden"
-            >
-              {/* Day Header with Ink Die-Cut style (24-36px) */}
-              <div className="bg-white border-b-[2px] border-[#2D2200] py-1.5 px-1 text-center shrink-0">
-                <h3 className="ink-die-cut text-[18px] sm:text-[22px] uppercase tracking-wide leading-none select-none">
-                  {day.label}
-                </h3>
-              </div>
-
-              {/* Day Column Droppable Zone */}
-              <DayColumnDroppable dayKey={day.key} isPrintMode={isPrintMode}>
-                {dayBlocks.map((block) => (
-                  <ActivityBlockCard
-                    key={block.id}
-                    block={block}
-                    isSelected={selectedBlockId === block.id}
-                    onSelect={onSelectBlock}
-                    onUpdate={onUpdateBlock}
-                    onDuplicate={onDuplicateBlock}
-                    onDelete={onDeleteBlock}
-                    showTime={plan.showTimesOnBlocks}
-                    showCheckbox={plan.showCheckboxes}
-                    compact={true}
-                    isPrintMode={isPrintMode}
-                    enableDrag={true}
-                  />
-                ))}
-
-                {/* Ghost landing indicator for this day */}
-                {isGhostInThisDay && (
-                  <div
-                    className={`w-full rounded-[14px] px-2 py-1 flex items-center justify-between transition-all select-none ${
-                      activeGhost.isNoState
-                        ? 'border-[2px] border-dashed border-[#E52311] bg-red-50/50 text-[#E52311]'
-                        : 'border-[2px] border-dashed border-[#B6B2A6] bg-[#B6B2A6]/10 text-[#2D2200]'
-                    }`}
-                    style={{ minHeight: '38px' }}
-                  >
-                    <span className="font-['Nunito'] font-bold text-[12px] truncate">
-                      {activeGhost.isNoState ? 'No room here' : activeGhost.label || 'Drop here'}
-                    </span>
-                    <span className="font-['Nunito'] font-semibold text-[10px] opacity-75">
-                      {activeGhost.timeStr}
-                    </span>
-                  </div>
-                )}
-              </DayColumnDroppable>
+        {days.map((day) => (
+          <div key={day.key} className="flex flex-col h-full min-h-0 min-w-0">
+            <div className="text-center shrink-0 pb-1.5">
+              <h3 className="ink-die-cut text-[24px] leading-none select-none">
+                {useShort ? day.short : day.label}
+              </h3>
             </div>
-          );
-        })}
+            <div className="flex-1 min-h-0">
+              <ScheduleGrid
+                plan={plan}
+                column={day.key}
+                selectedBlockId={selectedBlockId}
+                ghost={ghost}
+                compact
+                isPrintMode={isPrintMode}
+                onSelectBlock={onSelectBlock}
+                onUpdateBlock={onUpdateBlock}
+                onDuplicateBlock={onDuplicateBlock}
+                onDeleteBlock={onDeleteBlock}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

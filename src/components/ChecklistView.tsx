@@ -76,7 +76,6 @@ export const ChecklistView: React.FC<ChecklistViewProps> = ({
                 showCheckbox={true}
                 isBigTemplate={true}
                 isPrintMode={isPrintMode}
-                allowDurationResize={false}
                 enableDrag={true}
               />
             </div>

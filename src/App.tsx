@@ -4,12 +4,12 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DndContext,
   DragEndEvent,
   DragOverEvent,
   DragStartEvent,
-  DragMoveEvent,
   PointerSensor,
   TouchSensor,
   KeyboardSensor,
@@ -28,8 +28,18 @@ import { StarterBlockTemplate, createBlockFromTemplate } from './constants/start
 import { createInitialPlan } from './constants/templates';
 import { loadSavedPlans, savePlansToStorage } from './utils/storage';
 import { exportPageToPdf } from './utils/pdfExport';
-import { findAvailableSlot, minutesToTimeString, timeStringToMinutes } from './utils/overlap';
-import { getPlanCapacityInfo } from './utils/pageLimits';
+import {
+  DAILY_COLUMN,
+  GridColumnKey,
+  durationToSpan,
+  findNearestFreeRow,
+  getPlacement,
+  parseCellId,
+  rowToTime,
+  spanToDuration,
+} from './utils/grid';
+import { GridGhost } from './components/ScheduleGrid';
+import { getPlanCapacityInfo, validateTimeRange } from './utils/pageLimits';
 import { HeaderNav } from './components/HeaderNav';
 import { LeftSidebar } from './components/LeftSidebar';
 import { RightSidebar } from './components/RightSidebar';
@@ -40,14 +50,6 @@ import { DragPreviewOverlay, ActiveDragItem } from './components/DragPreviewOver
 import confetti from 'canvas-confetti';
 import { Menu, SlidersHorizontal } from 'lucide-react';
 
-interface GhostInfo {
-  timeStr: string;
-  dayKey?: ActivityBlock['dayOfWeek'];
-  isNoState?: boolean;
-  label?: string;
-  iconName?: string;
-  duration?: number;
-}
 
 export default function App() {
   const [plansState, setPlansState] = useState<{
@@ -78,7 +80,9 @@ export default function App() {
   // Drag and drop states
   const [activeDragItem, setActiveDragItem] = useState<ActiveDragItem | null>(null);
   const [activeDropId, setActiveDropId] = useState<string | null>(null);
-  const [activeGhost, setActiveGhost] = useState<GhostInfo | null>(null);
+  const [ghost, setGhost] = useState<GridGhost | null>(null);
+  // Which row of a block the pointer grabbed, so the block keeps that offset while dragging.
+  const grabOffsetRows = useRef<number>(0);
   const [isOutsidePage, setIsOutsidePage] = useState<boolean>(false);
 
   // Toast state
@@ -250,6 +254,43 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleUndo, handleRedo, selectedBlockId, selectedStickerId, handleDeleteBlock, handleDeleteSticker]);
 
+  const isGridTemplate = currentPlan.template === 'daily' || currentPlan.template === 'weekly';
+
+  const showFullToast = () =>
+    setToast({
+      id: `toast-${Date.now()}`,
+      message: 'This page is full. Remove a block or change the time range.',
+      duration: 4000,
+    });
+
+  /**
+   * Finds a spot for a new block on the grid: the requested row (or the top of
+   * the day), at the requested length, falling back to one row if a longer
+   * block will not fit anywhere. Returns null when the column is full.
+   */
+  const findGridSpot = (
+    column: GridColumnKey,
+    preferredRow: number,
+    durationMinutes: number,
+    excludeBlockId?: string
+  ): { row: number; span: number } | null => {
+    const wanted = durationToSpan(currentPlan, durationMinutes);
+    for (const span of wanted > 1 ? [wanted, 1] : [1]) {
+      const row = findNearestFreeRow(currentPlan, column, preferredRow, span, excludeBlockId);
+      if (row !== null) return { row, span };
+    }
+    return null;
+  };
+
+  const columnForNewBlock = (): GridColumnKey =>
+    currentPlan.template === 'weekly' ? 'mon' : DAILY_COLUMN;
+
+  const toBlockPosition = (column: GridColumnKey, row: number, span: number) => ({
+    startTime: rowToTime(currentPlan, row),
+    durationMinutes: spanToDuration(currentPlan, span),
+    dayOfWeek: column === DAILY_COLUMN ? undefined : (column as ActivityBlock['dayOfWeek']),
+  });
+
   // Block management
   const handleAddBlockFromTemplate = (template: StarterBlockTemplate) => {
     if (capacityInfo.isFull) {
@@ -261,19 +302,18 @@ export default function App() {
       return;
     }
 
-    const defaultDuration = currentPlan.timeIncrement || template.defaultDuration;
-    const available = findAvailableSlot(currentPlan, '08:00', defaultDuration);
-    if (!available) {
-      setToast({
-        id: `toast-${Date.now()}`,
-        message: 'No room there. Try another time.',
-        duration: 3500,
-      });
-      return;
+    const newBlock = createBlockFromTemplate(template);
+    if (isGridTemplate) {
+      const column = columnForNewBlock();
+      const spot = findGridSpot(column, 0, template.defaultDuration);
+      if (!spot) {
+        showFullToast();
+        return;
+      }
+      Object.assign(newBlock, toBlockPosition(column, spot.row, spot.span));
+    } else if (currentPlan.template === 'checklist') {
+      newBlock.slotIndex = currentPlan.blocks.length;
     }
-
-    const newBlock = createBlockFromTemplate(template, available.timeStr);
-    newBlock.durationMinutes = defaultDuration;
     updateCurrentPlan({
       blocks: [...currentPlan.blocks, newBlock],
     });
@@ -296,17 +336,25 @@ export default function App() {
       return;
     }
 
-    const available = findAvailableSlot(currentPlan, '08:00', data.duration);
     const newBlock: ActivityBlock = {
       id: `block-${Date.now()}`,
       label: data.label,
       iconName: data.iconName,
       category: data.category,
-      startTime: available ? available.timeStr : '08:00',
       durationMinutes: data.duration,
-      dayOfWeek: 'mon',
       showCheckbox: true,
     };
+    if (isGridTemplate) {
+      const column = columnForNewBlock();
+      const spot = findGridSpot(column, 0, data.duration);
+      if (!spot) {
+        showFullToast();
+        return;
+      }
+      Object.assign(newBlock, toBlockPosition(column, spot.row, spot.span));
+    } else if (currentPlan.template === 'checklist') {
+      newBlock.slotIndex = currentPlan.blocks.length;
+    }
     updateCurrentPlan({
       blocks: [...currentPlan.blocks, newBlock],
     });
@@ -331,19 +379,24 @@ export default function App() {
       return;
     }
 
-    const available = findAvailableSlot(
-      currentPlan,
-      block.startTime || '08:00',
-      block.durationMinutes || 30,
-      block.dayOfWeek
-    );
-
     const duplicated: ActivityBlock = {
       ...block,
       id: `block-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      label: `${block.label} (copy)`,
-      startTime: available ? available.timeStr : block.startTime,
     };
+    if (isGridTemplate) {
+      // Place the copy right after the original, or the nearest free gap.
+      const placement = getPlacement(currentPlan, block);
+      const column = placement?.column ?? columnForNewBlock();
+      const after = placement ? placement.row + placement.span : 0;
+      const spot = findGridSpot(column, after, block.durationMinutes);
+      if (!spot) {
+        showFullToast();
+        return;
+      }
+      Object.assign(duplicated, toBlockPosition(column, spot.row, spot.span));
+    } else if (currentPlan.template === 'checklist') {
+      duplicated.slotIndex = currentPlan.blocks.length;
+    }
     updateCurrentPlan({
       blocks: [...currentPlan.blocks, duplicated],
     });
@@ -381,6 +434,14 @@ export default function App() {
     if (newTemplate === currentPlan.template) return;
 
     const isLandscape = newTemplate === 'weekly' || newTemplate === 'first-then';
+    // The weekly page is landscape and shorter, so a 30-minute grid may not fit.
+    // Step up to a bigger time step rather than squashing rows too small to read.
+    const orientation = isLandscape ? 'landscape' : 'portrait';
+    const fittedIncrement = ([currentPlan.timeIncrement, 30, 60] as const).find(
+      (inc) =>
+        inc >= currentPlan.timeIncrement &&
+        validateTimeRange(currentPlan.timeStartHour, currentPlan.timeEndHour, inc, orientation).valid
+    ) ?? 60;
 
     // If blocks exist, check compatibility or ask confirmation
     if (currentPlan.blocks.length > 0) {
@@ -396,7 +457,8 @@ export default function App() {
 
         updateCurrentPlan({
           template: newTemplate,
-          orientation: isLandscape ? 'landscape' : 'portrait',
+          orientation,
+          timeIncrement: fittedIncrement,
           blocks: [],
         });
         return;
@@ -411,7 +473,8 @@ export default function App() {
 
     updateCurrentPlan({
       template: newTemplate,
-      orientation: isLandscape ? 'landscape' : 'portrait',
+      orientation,
+      timeIncrement: fittedIncrement,
       blocks: preservedBlocks,
     });
   };
@@ -464,136 +527,82 @@ export default function App() {
   };
 
   // =========================================================
-  // DND-KIT DRAG & DROP WITH PRECISE POINTER Y SNAPPING
+  // DRAG & DROP ON THE GRID
+  // Every grid row is its own drop target (see ScheduleGrid), so the row
+  // under the pointer is known exactly. No pixel maths, so zoom never matters.
   // =========================================================
-  const calculateDropTimeFromPointer = useCallback(
-    (
-      clientX: number,
-      clientY: number,
-      duration: number,
-      excludeBlockId?: string
-    ): GhostInfo | null => {
-      // Find element under pointer
-      const elements = document.elementsFromPoint(clientX, clientY);
 
-      // Check for daily slot row or daily column
-      const dailyRowEl = elements.find((el) => el.hasAttribute('data-time'));
-      const dailyColEl = elements.find((el) => el.classList.contains('daily-slot-row') || el.closest('#print-sheet'));
-      const weeklyColEl = elements.find((el) => el.hasAttribute('data-day') || el.closest('[data-day]'));
+  /** Rows the dragged item needs, and which block (if any) is being moved. */
+  const describeDrag = (item: ActivityBlock | null, paletteDuration?: number) => ({
+    span: durationToSpan(currentPlan, item ? item.durationMinutes : paletteDuration || currentPlan.timeIncrement),
+    excludeId: item?.id,
+  });
 
-      let targetTimeStr = '08:00';
-      let dayKey: ActivityBlock['dayOfWeek'] = 'mon';
+  /** Where the dragged item would land if dropped on this droppable. */
+  const computeGhost = (overId: string | null, dragItem: ActiveDragItem | null): GridGhost | null => {
+    if (!overId || !dragItem || !isGridTemplate) return null;
+    if (dragItem.type !== 'palette-block' && dragItem.type !== 'planner-block') return null;
+    const cell = parseCellId(overId);
+    if (!cell) return null;
 
-      if (currentPlan.template === 'weekly' && weeklyColEl) {
-        const col = weeklyColEl.hasAttribute('data-day')
-          ? weeklyColEl
-          : (weeklyColEl.closest('[data-day]') as HTMLElement);
-        dayKey = (col?.getAttribute('data-day') as ActivityBlock['dayOfWeek']) || 'mon';
+    const isNew = dragItem.type === 'palette-block';
+    const label = isNew ? dragItem.template.label : dragItem.block.label;
+    if (isNew && capacityInfo.isFull) {
+      return { column: cell.column, row: cell.row, span: 1, ok: false, label };
+    }
 
-        const rect = col.getBoundingClientRect();
-        const pointerOffsetY = (clientY - rect.top) / zoom;
-        const colHeight = rect.height / zoom;
+    const { span, excludeId } = isNew
+      ? describeDrag(null, dragItem.template.defaultDuration)
+      : describeDrag(dragItem.block);
+    const target = Math.max(0, cell.row - (isNew ? 0 : grabOffsetRows.current));
+    const spot = isNew
+      ? findGridSpot(cell.column, target, spanToDuration(currentPlan, span))
+      : (() => {
+          const row = findNearestFreeRow(currentPlan, cell.column, target, span, excludeId);
+          return row === null ? null : { row, span };
+        })();
 
-        const totalMinutes = (currentPlan.timeEndHour - currentPlan.timeStartHour) * 60;
-        const rows = Math.max(1, Math.round(totalMinutes / currentPlan.timeIncrement));
-        const rowHeight = Math.max(40, colHeight / rows);
-
-        const rowIndex = Math.max(0, Math.min(rows - 1, Math.floor(pointerOffsetY / rowHeight)));
-        const minutes = currentPlan.timeStartHour * 60 + rowIndex * currentPlan.timeIncrement;
-        targetTimeStr = minutesToTimeString(minutes);
-      } else if (dailyRowEl) {
-        targetTimeStr = dailyRowEl.getAttribute('data-time') || '08:00';
-      } else if (dailyColEl && canvasRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect();
-        const pointerOffsetY = (clientY - rect.top) / zoom;
-        const totalMinutes = (currentPlan.timeEndHour - currentPlan.timeStartHour) * 60;
-        const rows = Math.max(1, Math.round(totalMinutes / currentPlan.timeIncrement));
-        const estimatedRowHeight = 44;
-        const rowIndex = Math.max(0, Math.min(rows - 1, Math.floor((pointerOffsetY - 180) / estimatedRowHeight)));
-        const minutes = currentPlan.timeStartHour * 60 + rowIndex * currentPlan.timeIncrement;
-        targetTimeStr = minutesToTimeString(minutes);
-      }
-
-      // Check slot with findAvailableSlot (nearest free slot above/below or null for 'no' state)
-      const slot = findAvailableSlot(currentPlan, targetTimeStr, duration, dayKey, excludeBlockId);
-
-      if (!slot || capacityInfo.isFull) {
-        return {
-          timeStr: targetTimeStr,
-          dayKey,
-          isNoState: true,
-          label: 'No room here',
-          duration,
-        };
-      }
-
-      return {
-        timeStr: slot.timeStr,
-        dayKey,
-        isNoState: false,
-        label: activeDragItem?.type === 'palette-block' ? activeDragItem.template.label : activeDragItem?.type === 'planner-block' ? activeDragItem.block.label : 'Drop activity',
-        duration,
-      };
-    },
-    [currentPlan, zoom, capacityInfo.isFull, activeDragItem]
-  );
+    if (!spot) return { column: cell.column, row: target, span, ok: false, label };
+    return { column: cell.column, row: spot.row, span: spot.span, ok: true, label };
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as ActiveDragItem | undefined;
-    if (data) {
-      setActiveDragItem(data);
-      setIsOutsidePage(false);
-      setActiveDropId(null);
-      setActiveGhost(null);
-    }
-  };
-
-  const handleDragMove = (event: DragMoveEvent) => {
-    if (!event.over) {
-      setIsOutsidePage(true);
-      setActiveGhost(null);
-      return;
-    }
-
+    if (!data) return;
+    setActiveDragItem(data);
     setIsOutsidePage(false);
-    const activeData = activeDragItem;
-    if (!activeData) return;
+    setActiveDropId(null);
+    setGhost(null);
+    grabOffsetRows.current = 0;
 
-    // Pointer-based time snapping for blocks
-    if (activeData.type === 'palette-block' || activeData.type === 'planner-block') {
-      const duration =
-        activeData.type === 'palette-block'
-          ? currentPlan.timeIncrement || activeData.template.defaultDuration
-          : activeData.block.durationMinutes;
-
-      const excludeId = activeData.type === 'planner-block' ? activeData.block.id : undefined;
-
-      // Extract pointer event position from touch / mouse
-      const pointerEvent = (window.event as MouseEvent | TouchEvent | undefined);
-      let clientX = 0;
-      let clientY = 0;
-      if (pointerEvent && 'clientX' in pointerEvent) {
-        clientX = pointerEvent.clientX;
-        clientY = pointerEvent.clientY;
-      } else if (pointerEvent && 'touches' in pointerEvent && pointerEvent.touches.length > 0) {
-        clientX = pointerEvent.touches[0].clientX;
-        clientY = pointerEvent.touches[0].clientY;
-      }
-
-      if (clientX && clientY) {
-        const ghost = calculateDropTimeFromPointer(clientX, clientY, duration, excludeId);
-        setActiveGhost(ghost);
+    // Remember which row of a multi-row block was grabbed, so dragging by the
+    // middle of a 2-hour block does not shift it down by an hour.
+    if (data.type === 'planner-block') {
+      const el =
+        typeof document !== 'undefined'
+          ? document.querySelector(`#print-sheet [data-block-id="${data.block.id}"]`)
+          : null;
+      const rect = el ? el.getBoundingClientRect() : event.active.rect.current.initial;
+      const span = durationToSpan(currentPlan, data.block.durationMinutes);
+      const ev = event.activatorEvent as PointerEvent | TouchEvent | null;
+      const clientY =
+        ev && 'touches' in ev && ev.touches.length ? ev.touches[0].clientY : (ev as PointerEvent | null)?.clientY;
+      if (rect && typeof clientY === 'number' && span > 1) {
+        const rowHeight = rect.height / span;
+        grabOffsetRows.current = Math.max(0, Math.min(span - 1, Math.floor((clientY - rect.top) / rowHeight)));
       }
     }
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     if (event.over) {
-      setActiveDropId(String(event.over.id));
+      const overId = String(event.over.id);
+      setActiveDropId(overId);
       setIsOutsidePage(false);
+      setGhost(computeGhost(overId, activeDragItem));
     } else {
       setActiveDropId(null);
-      setActiveGhost(null);
+      setGhost(null);
       setIsOutsidePage(true);
     }
   };
@@ -601,16 +610,17 @@ export default function App() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over, delta } = event;
     const activeData = active.data.current as ActiveDragItem | undefined;
+    const overId = over ? String(over.id) : null;
+    const landing = computeGhost(overId, activeData || null);
 
-    // Reset overlay and ghost outlines
     setActiveDragItem(null);
     setActiveDropId(null);
-    setActiveGhost(null);
+    setGhost(null);
     setIsOutsidePage(false);
 
     if (!activeData) return;
 
-    // 1. DRAGGING OFF THE PLANNER TO DELETE
+    // 1. DRAGGED OFF THE PAGE: delete (with undo toast)
     if (!over) {
       if (activeData.type === 'planner-block') {
         handleDeleteBlock(activeData.block.id);
@@ -620,117 +630,81 @@ export default function App() {
       return;
     }
 
-    const overId = String(over.id);
-
-    // 2. CREATING A NEW BLOCK FROM PALETTE
+    // 2. NEW BLOCK FROM THE PALETTE
     if (activeData.type === 'palette-block') {
-      if (capacityInfo.isFull) {
-        setToast({
-          id: `toast-${Date.now()}`,
-          message: 'This page is full. Remove a block or change the time range.',
-          duration: 4000,
-        });
-        return;
-      }
-
       const template = activeData.template;
-      const duration = currentPlan.timeIncrement || template.defaultDuration;
 
-      // Use activeGhost time if available and valid
-      if (activeGhost && !activeGhost.isNoState) {
-        const newBlock = createBlockFromTemplate(
-          template,
-          activeGhost.timeStr,
-          activeGhost.dayKey
-        );
-        newBlock.durationMinutes = duration;
-        updateCurrentPlan({
-          blocks: [...currentPlan.blocks, newBlock],
-        });
-        setSelectedBlockId(newBlock.id);
-        setSelectedStickerId(null);
-        return;
-      }
-
-      if (activeGhost && activeGhost.isNoState) {
-        setToast({
-          id: `toast-${Date.now()}`,
-          message: 'No room there. Try another time.',
-          duration: 3500,
-        });
-        return;
-      }
-
-      // Drop on Checklist
-      if (overId === 'checklist-dropzone') {
-        const nextIdx = currentPlan.blocks.length;
+      if (isGridTemplate) {
+        if (capacityInfo.isFull) {
+          showFullToast();
+          return;
+        }
+        // Dropped on the page but not on a row: put it in the first free gap.
+        const spot = landing
+          ? landing.ok
+            ? { column: landing.column, row: landing.row, span: landing.span }
+            : null
+          : (() => {
+              const column = columnForNewBlock();
+              const found = findGridSpot(column, 0, template.defaultDuration);
+              return found ? { column, ...found } : null;
+            })();
+        if (!spot) {
+          setToast({ id: `toast-${Date.now()}`, message: 'No room there. Try another spot.', duration: 3500 });
+          return;
+        }
         const newBlock = createBlockFromTemplate(template);
-        newBlock.slotIndex = nextIdx;
-        updateCurrentPlan({
-          blocks: [...currentPlan.blocks, newBlock],
-        });
+        Object.assign(newBlock, toBlockPosition(spot.column, spot.row, spot.span));
+        updateCurrentPlan({ blocks: [...currentPlan.blocks, newBlock] });
         setSelectedBlockId(newBlock.id);
         setSelectedStickerId(null);
         return;
       }
 
-      // Drop on First-Then board
+      if (capacityInfo.isFull) {
+        showFullToast();
+        return;
+      }
+
+      if (overId === 'checklist-dropzone' || currentPlan.template === 'checklist') {
+        const newBlock = createBlockFromTemplate(template);
+        newBlock.slotIndex = currentPlan.blocks.length;
+        updateCurrentPlan({ blocks: [...currentPlan.blocks, newBlock] });
+        setSelectedBlockId(newBlock.id);
+        setSelectedStickerId(null);
+        return;
+      }
+
       if (overId === 'firstthen-first' || overId === 'firstthen-then') {
         const slot: 'first' | 'then' = overId === 'firstthen-first' ? 'first' : 'then';
         const newBlock = createBlockFromTemplate(template);
         newBlock.isFirstThenSlot = slot;
         const otherBlocks = currentPlan.blocks.filter((b) => b.isFirstThenSlot !== slot);
-        updateCurrentPlan({
-          blocks: [...otherBlocks, newBlock],
-        });
+        updateCurrentPlan({ blocks: [...otherBlocks, newBlock] });
         setSelectedBlockId(newBlock.id);
         setSelectedStickerId(null);
-        return;
       }
-
-      // Fallback drop on page canvas
-      const slot = findAvailableSlot(currentPlan, '08:00', duration);
-      if (!slot) {
-        setToast({
-          id: `toast-${Date.now()}`,
-          message: 'No room there. Try another time.',
-          duration: 3500,
-        });
-        return;
-      }
-      const newBlock = createBlockFromTemplate(template, slot.timeStr);
-      newBlock.durationMinutes = duration;
-      updateCurrentPlan({
-        blocks: [...currentPlan.blocks, newBlock],
-      });
-      setSelectedBlockId(newBlock.id);
-      setSelectedStickerId(null);
       return;
     }
 
-    // 3. MOVING AN EXISTING BLOCK ON THE PLANNER
+    // 3. MOVING A BLOCK THAT IS ALREADY ON THE PAGE
     if (activeData.type === 'planner-block') {
       const block = activeData.block;
 
-      if (activeGhost && !activeGhost.isNoState) {
-        handleUpdateBlock(block.id, {
-          startTime: activeGhost.timeStr,
-          dayOfWeek: activeGhost.dayKey || block.dayOfWeek,
-        });
+      if (isGridTemplate) {
+        if (landing?.ok) {
+          handleUpdateBlock(block.id, {
+            startTime: rowToTime(currentPlan, landing.row),
+            dayOfWeek: landing.column === DAILY_COLUMN ? block.dayOfWeek : (landing.column as ActivityBlock['dayOfWeek']),
+          });
+        } else if (landing && !landing.ok) {
+          setToast({ id: `toast-${Date.now()}`, message: 'No room there. Try another spot.', duration: 3500 });
+        }
+        // Dropped on the page but not on a row: it simply stays where it was.
         setSelectedBlockId(block.id);
         return;
       }
 
-      if (activeGhost && activeGhost.isNoState) {
-        setToast({
-          id: `toast-${Date.now()}`,
-          message: 'No room there. Try another time.',
-          duration: 3500,
-        });
-        return;
-      }
-
-      // Moved to First-Then slot
       if (overId === 'firstthen-first' || overId === 'firstthen-then') {
         const targetSlot: 'first' | 'then' = overId === 'firstthen-first' ? 'first' : 'then';
         const otherBlocks = currentPlan.blocks.filter(
@@ -856,11 +830,11 @@ export default function App() {
     currentPlan.stickers.find((s) => s.id === selectedStickerId) || null;
 
   return (
+    <>
     <DndContext
       sensors={sensors}
       collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
@@ -956,7 +930,7 @@ export default function App() {
                 selectedBlockId={selectedBlockId}
                 selectedStickerId={selectedStickerId}
                 activeDropId={activeDropId}
-                activeGhost={activeGhost}
+                ghost={ghost}
                 onSelectBlock={(b) => {
                   setSelectedBlockId(b.id);
                   setSelectedStickerId(null);
@@ -975,49 +949,6 @@ export default function App() {
                 onUpdateSticker={handleUpdateSticker}
                 onDeleteSticker={handleDeleteSticker}
                 onUpdatePlan={updateCurrentPlan}
-                onAddBlockAtTime={(timeStr) => {
-                  if (capacityInfo.isFull) {
-                    setToast({
-                      id: `toast-${Date.now()}`,
-                      message: 'This page is full. Remove a block or change the time range.',
-                      duration: 4000,
-                    });
-                    return;
-                  }
-                  const newBlock = createBlockFromTemplate(
-                    {
-                      label: 'New activity',
-                      iconName: 'Star',
-                      category: 'custom',
-                      defaultDuration: currentPlan.timeIncrement || 30,
-                    },
-                    timeStr
-                  );
-                  updateCurrentPlan({ blocks: [...currentPlan.blocks, newBlock] });
-                  setSelectedBlockId(newBlock.id);
-                }}
-                onAddBlockToDay={(day) => {
-                  if (capacityInfo.isFull) {
-                    setToast({
-                      id: `toast-${Date.now()}`,
-                      message: 'This page is full. Remove a block or change the time range.',
-                      duration: 4000,
-                    });
-                    return;
-                  }
-                  const newBlock = createBlockFromTemplate(
-                    {
-                      label: 'New activity',
-                      iconName: 'Star',
-                      category: 'custom',
-                      defaultDuration: 60,
-                    },
-                    '09:00',
-                    day
-                  );
-                  updateCurrentPlan({ blocks: [...currentPlan.blocks, newBlock] });
-                  setSelectedBlockId(newBlock.id);
-                }}
                 onAddStep={() => {
                   if (capacityInfo.isFull) {
                     setToast({
@@ -1095,5 +1026,33 @@ export default function App() {
         />
       </div>
     </DndContext>
+
+    {/* PRINT COPY: a clean, un-zoomed copy of the sheet that only exists in print.
+        The editor (sidebars, zoomed preview, scroll panels) is hidden entirely when
+        printing, so the browser prints exactly one Letter page. */}
+    {typeof document !== 'undefined' &&
+      createPortal(
+        <div className="print-root" aria-hidden="true">
+          <style>{`@page { size: letter ${currentPlan.orientation}; margin: 0; }`}</style>
+          <PageCanvas
+            plan={currentPlan}
+            isGrayscale={false}
+            selectedBlockId={null}
+            selectedStickerId={null}
+            onSelectBlock={() => {}}
+            onSelectSticker={() => {}}
+            onDeselectAll={() => {}}
+            onUpdateBlock={() => {}}
+            onDuplicateBlock={() => {}}
+            onDeleteBlock={() => {}}
+            onUpdateSticker={() => {}}
+            onDeleteSticker={() => {}}
+            onUpdatePlan={() => {}}
+            isPrintMode
+          />
+        </div>,
+        document.body
+      )}
+    </>
   );
 }

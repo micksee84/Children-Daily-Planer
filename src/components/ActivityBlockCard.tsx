@@ -1,8 +1,8 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { ActivityBlock } from '../types';
 import { BlockIcon } from './BlockIcon';
-import { Clock, Copy, Trash2, GripVertical } from 'lucide-react';
+import { Copy, Trash2, GripHorizontal } from 'lucide-react';
 
 interface ActivityBlockCardProps {
   block: ActivityBlock;
@@ -14,20 +14,28 @@ interface ActivityBlockCardProps {
   showTime?: boolean;
   showCheckbox?: boolean;
   isPrintMode?: boolean;
+  /** Narrow columns (weekly planner): label and time stack instead of sitting side by side. */
   compact?: boolean;
-  isBigTemplate?: boolean; // Checklist or First-Then (uses 20pt text)
+  /** Checklist and First–Then templates use large blocks and 20pt words. */
+  isBigTemplate?: boolean;
   style?: React.CSSProperties;
   className?: string;
-  allowDurationResize?: boolean;
   enableDrag?: boolean;
-  rowHeightPx?: number;
+  /** Grid templates: the card fills its grid area exactly. */
+  fillCell?: boolean;
+  /** Grid templates: how many rows the block covers. */
+  span?: number;
+  /** Grid templates: pre-formatted time range, e.g. "8am – 8:30am". */
+  timeLabel?: string;
+  /** Grid templates: starts a row-snapping resize from the bottom handle. */
+  onResizeStart?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  isResizing?: boolean;
 }
 
 export const ActivityBlockCard: React.FC<ActivityBlockCardProps> = ({
   block,
   isSelected = false,
   onSelect,
-  onUpdate,
   onDuplicate,
   onDelete,
   showTime = true,
@@ -37,48 +45,31 @@ export const ActivityBlockCard: React.FC<ActivityBlockCardProps> = ({
   isBigTemplate = false,
   style = {},
   className = '',
-  allowDurationResize = true,
   enableDrag = true,
-  rowHeightPx,
+  fillCell = false,
+  span = 1,
+  timeLabel,
+  onResizeStart,
+  isResizing = false,
 }) => {
-  const resizeStartY = useRef<number | null>(null);
-  const initialDuration = useRef<number>(block.durationMinutes);
-
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `planner-block-${block.id}`,
     data: {
       type: 'planner-block',
       block,
+      span,
     },
-    disabled: isPrintMode || !enableDrag,
+    disabled: isPrintMode || !enableDrag || isResizing,
   });
 
-  const handleResizeStart = (e: React.PointerEvent) => {
-    if (isPrintMode || !onUpdate) return;
-    e.stopPropagation();
-    e.preventDefault();
-    resizeStartY.current = e.clientY;
-    initialDuration.current = block.durationMinutes;
+  const shouldShowCheckbox = showCheckbox && block.showCheckbox !== false && !(compact && span < 2);
+  const shownTime = showTime ? timeLabel || '' : '';
 
-    const handlePointerMove = (moveEv: PointerEvent) => {
-      if (resizeStartY.current === null) return;
-      const deltaY = moveEv.clientY - resizeStartY.current;
-      const deltaSteps = Math.round(deltaY / 20);
-      const newDuration = Math.max(15, Math.min(240, initialDuration.current + deltaSteps * 15));
-      onUpdate(block.id, { durationMinutes: newDuration });
-    };
-
-    const handlePointerUp = () => {
-      resizeStartY.current = null;
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-  };
-
-  const shouldShowCheckbox = showCheckbox && block.showCheckbox !== false;
+  // Sizes step up as a block covers more rows, so long activities read bigger.
+  const tall = span >= 2;
+  const labelSize = isBigTemplate ? 20 : compact ? (tall ? 14 : 13) : tall ? 17 : 15;
+  const iconSize = isBigTemplate ? 32 : compact ? 16 : tall ? 22 : 18;
+  const stackText = compact && tall;
 
   return (
     <div
@@ -91,68 +82,71 @@ export const ActivityBlockCard: React.FC<ActivityBlockCardProps> = ({
           onSelect(block);
         }
       }}
+      data-block-id={block.id}
       style={{
         backgroundColor: '#FFFFFF',
         borderColor: '#2D2200',
-        borderWidth: '4px',
-        borderRadius: '14px',
+        borderStyle: 'solid',
+        borderWidth: isBigTemplate ? '4px' : '3px',
+        borderRadius: isBigTemplate ? '16px' : '12px',
         touchAction: 'none',
-        minHeight: isBigTemplate ? '64px' : '40px',
-        height: rowHeightPx ? `${rowHeightPx}px` : undefined,
+        minHeight: fillCell ? 0 : isBigTemplate ? '64px' : '40px',
+        height: fillCell ? '100%' : undefined,
         ...style,
       }}
-      className={`group relative flex items-center justify-between bg-white transition-all select-none cursor-grab active:cursor-grabbing px-2.5 py-1.5 w-full ${
-        isSelected && !isPrintMode ? 'ring-3 ring-[#2D2200] ring-offset-2 shadow-flat-ink' : ''
-      } ${isDragging ? 'opacity-30 border-dashed' : ''} ${className}`}
+      className={`group relative flex justify-between bg-white select-none cursor-grab active:cursor-grabbing w-full overflow-visible ${
+        stackText ? 'items-start pt-1' : 'items-center'
+      } ${compact ? 'px-1.5' : 'px-2.5'} ${
+        isSelected && !isPrintMode ? 'shadow-flat-ink' : ''
+      } ${isDragging ? 'opacity-30' : ''} ${className}`}
     >
-      {/* Single-Row Layout: Icon (24px) on left + Label + Time on right */}
-      <div className="flex items-center gap-2 flex-1 min-w-0 pointer-events-none">
-        {/* Child colourable Line Icon (24px) */}
-        <div className="shrink-0 p-0.5 rounded-[8px] border-[1.5px] border-[#2D2200] bg-white flex items-center justify-center">
-          <BlockIcon
-            name={block.iconName}
-            size={isBigTemplate ? 32 : 24}
-            strokeWidth={2.75}
-            fill="#FFFFFF"
-          />
+      {/* Icon + label (+ stacked time in narrow columns) */}
+      <div className={`flex gap-1.5 flex-1 min-w-0 pointer-events-none ${stackText ? 'items-start' : 'items-center'}`}>
+        <div className="shrink-0 flex items-center justify-center">
+          <BlockIcon name={block.iconName} size={iconSize} strokeWidth={2.5} fill="#FFFFFF" />
         </div>
-
-        {/* Activity Label: Nunito 700, 16pt (20pt in big templates) */}
-        <span
-          className={`font-bold text-[#2D2200] tracking-tight truncate leading-tight font-['Nunito'] ${
-            isBigTemplate ? 'text-[20px]' : 'text-[16px]'
-          }`}
-          title={block.label}
-        >
-          {block.label}
-        </span>
+        <div className="min-w-0 flex flex-col">
+          <span
+            className="font-['Nunito'] font-bold text-[#2D2200] leading-tight overflow-hidden break-words"
+            style={{
+              fontSize: `${labelSize}px`,
+              // One line in one-row blocks, up to two in taller ones. No ellipsis.
+              maxHeight: `${(tall ? 2 : 1) * labelSize * 1.25}px`,
+            }}
+            title={block.label}
+          >
+            {block.label}
+          </span>
+          {stackText && shownTime && (
+            <span className="font-['Nunito'] font-semibold text-[10px] text-[#2D2200]/75 leading-tight whitespace-nowrap overflow-hidden">
+              {shownTime}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Right Side: Time (Nunito 600, 11pt) + Checkbox (18px circle) */}
-      <div className="flex items-center gap-2 shrink-0 ml-2 pointer-events-none">
-        {showTime && block.startTime && (
-          <div className="flex items-center gap-1 text-[#2D2200]/75 font-['Nunito'] font-semibold text-[11px] whitespace-nowrap">
-            <Clock size={11} strokeWidth={2.2} />
-            <span>{block.startTime}</span>
-          </div>
+      {/* Time range (wide columns) + tick circle */}
+      <div className="flex items-center gap-1.5 shrink-0 ml-1.5 pointer-events-none">
+        {!stackText && !compact && shownTime && (
+          <span className="font-['Nunito'] font-semibold text-[11px] text-[#2D2200]/75 whitespace-nowrap">
+            {shownTime}
+          </span>
         )}
-
         {shouldShowCheckbox && (
           <div
-            title="Tick or colour when completed"
-            className="w-[18px] h-[18px] rounded-full border-[2px] border-[#2D2200] bg-white flex items-center justify-center shrink-0"
-          >
-            <div className="w-[6px] h-[6px] rounded-full border border-dashed border-[#B6B2A6]" />
-          </div>
+            title="Tick or colour when done"
+            className="rounded-full border-[2px] border-[#2D2200] bg-white shrink-0"
+            style={{ width: compact ? 13 : 16, height: compact ? 13 : 16 }}
+          />
         )}
       </div>
 
-      {/* Hover/Selection Actions in Editor */}
+      {/* Selected: duplicate / delete */}
       {isSelected && !isPrintMode && !isDragging && (
         <div
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
-          className="no-print absolute -top-4 right-3 z-30 flex items-center gap-1 bg-white border-[1.5px] border-[#2D2200] rounded-full px-2 py-0.5 shadow-flat-ink text-[#2D2200] cursor-default"
+          className="no-print absolute -top-3.5 right-2 z-30 flex items-center gap-0.5 bg-white border-[1.5px] border-[#2D2200] rounded-full px-1.5 py-0.5 shadow-flat-ink text-[#2D2200] cursor-default"
         >
           {onDuplicate && (
             <button
@@ -163,37 +157,45 @@ export const ActivityBlockCard: React.FC<ActivityBlockCardProps> = ({
                 e.stopPropagation();
                 onDuplicate(block);
               }}
-              className="p-1 hover:bg-[#F2F2E2] rounded-full active:scale-95 cursor-pointer"
+              className="p-1 hover:bg-[#F2F2E2] rounded-full cursor-pointer"
             >
-              <Copy size={13} strokeWidth={2.5} />
+              <Copy size={12} strokeWidth={2.5} />
             </button>
           )}
           {onDelete && (
             <button
               type="button"
               aria-label="Delete block"
-              title="Delete (or drag off page)"
+              title="Delete (or drag off the page)"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(block.id);
               }}
-              className="p-1 hover:bg-red-50 text-[#E52311] rounded-full active:scale-95 cursor-pointer"
+              className="p-1 hover:bg-[#F2F2E2] rounded-full cursor-pointer"
             >
-              <Trash2 size={13} strokeWidth={2.5} />
+              <Trash2 size={12} strokeWidth={2.5} />
             </button>
           )}
         </div>
       )}
 
-      {/* Resize handle at bottom edge if duration resizing allowed */}
-      {allowDurationResize && !isPrintMode && isSelected && !isDragging && (
+      {/* Bottom handle (selected blocks only): drag to change how many rows the block covers.
+          It hangs below the block so grabbing the block itself always moves it. */}
+      {onResizeStart && !isPrintMode && !isDragging && (isSelected || isResizing) && (
         <div
-          onPointerDown={handleResizeStart}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onResizeStart(e);
+          }}
           onClick={(e) => e.stopPropagation()}
-          title="Drag down to lengthen duration"
-          className="no-print absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-14 h-4.5 rounded-full bg-white border-[1.5px] border-[#2D2200] flex items-center justify-center cursor-ns-resize shadow-flat-ink text-[#2D2200] z-20 hover:scale-105"
+          title="Drag to change how long this lasts"
+          aria-label="Resize block"
+          role="slider"
+          className="no-print absolute left-1/2 -translate-x-1/2 z-30 h-[14px] w-12 rounded-full bg-[#2D2200] text-white flex items-center justify-center cursor-ns-resize"
+          style={{ top: 'calc(100% - 2px)' }}
         >
-          <GripVertical size={11} className="rotate-90" strokeWidth={2.5} />
+          <GripHorizontal size={11} strokeWidth={2.75} />
         </div>
       )}
     </div>
