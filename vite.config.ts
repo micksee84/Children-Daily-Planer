@@ -5,6 +5,9 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // Relative base so the build works on GitHub Pages (/Children-Daily-Planer/)
+    // and on a custom domain root without changes.
+    base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
