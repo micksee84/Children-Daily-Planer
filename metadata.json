@@ -1,6 +1,6 @@
 {
   "name": "My Day Planner - Sunshine Brigade",
-  "description": "Visual timetable and routine chart builder for kids ages 3–5. Printable on US Letter paper. Learn. Wonder. Shine.",
+  "description": "Visual timetable and routine chart builder for kids ages 3\u20135. Printable on US Letter paper. Learn. Wonder. Shine.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

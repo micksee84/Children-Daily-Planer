@@ -794,8 +794,34 @@ export default function App() {
   const handlePrint = () => {
     setSelectedBlockId(null);
     setSelectedStickerId(null);
+
+    // When the planner is embedded in another site (e.g. the Framer /interactive
+    // page), browsers print the parent page instead of the planner. Open the
+    // planner in its own tab and print from there. Plans live in localStorage on
+    // this origin, so the new tab shows the same schedule.
+    let isEmbedded = false;
+    try {
+      isEmbedded = window.self !== window.top;
+    } catch {
+      isEmbedded = true;
+    }
+    if (isEmbedded) {
+      const url = new URL(window.location.href);
+      url.hash = 'print';
+      window.open(url.toString(), '_blank', 'noopener');
+      return;
+    }
+
     window.print();
   };
+
+  // Auto-print when opened via the embedded "Print" flow above.
+  useEffect(() => {
+    if (window.location.hash !== '#print') return;
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    const fontsReady = (document as any).fonts?.ready ?? Promise.resolve();
+    fontsReady.then(() => setTimeout(() => window.print(), 400));
+  }, []);
 
   const handleDownloadPdf = async () => {
     if (!canvasRef.current) return;
