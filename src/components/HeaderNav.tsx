@@ -75,16 +75,23 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
     <header className="no-print h-16 bg-white border-b-[1.5px] border-[#2D2200] px-4 sm:px-6 flex items-center justify-between z-30 shrink-0 font-['Nunito'] select-none">
       {/* Left: Brand & Schedule Switcher */}
       <div className="flex items-center gap-4 sm:gap-6">
-        <picture className="shrink-0">
-          <source media="(min-width: 640px)" srcSet={`${import.meta.env.BASE_URL}sb-logo-header.svg`} />
-          <img
-            src={`${import.meta.env.BASE_URL}sb-logo-icon.svg`}
-            alt="Sunshine Brigade"
-            draggable={false}
-            className="h-8 w-auto select-none"
-            loading="eager"
-          />
-        </picture>
+        <h1 className="m-0 flex items-center gap-4 sm:gap-6 shrink-0 font-normal">
+          <picture className="shrink-0">
+            <source media="(min-width: 640px)" srcSet={`${import.meta.env.BASE_URL}sb-logo-header.svg`} />
+            <img
+              src={`${import.meta.env.BASE_URL}sb-logo-icon.svg`}
+              alt="Sunshine Brigade"
+              draggable={false}
+              className="h-8 w-auto select-none"
+              loading="eager"
+            />
+          </picture>
+          <span className="hidden min-[1440px]:block h-6 w-[1.5px] bg-[#2D2200]/20" aria-hidden="true" />
+          {/* App name: Super Joyful ink die-cut (screen header, never under 24px) */}
+          <span className="hidden min-[1440px]:block ink-die-cut text-[24px] whitespace-nowrap">
+            My day planner
+          </span>
+        </h1>
 
         <div className="hidden sm:block h-6 w-[1.5px] bg-[#2D2200]/20" />
 
