@@ -154,7 +154,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             )}
 
             {/* Checkbox toggle */}
-            <div className="flex items-center justify-between p-3 rounded-xl border-[1.5px] border-[#2D2200]/30 bg-[#F8F7F4]">
+            <div className="flex items-center justify-between p-3 rounded-xl border-[1.5px] border-[#2D2200]/30 bg-[#FAF8F0]">
               <span className="text-[13px] font-bold text-[#2D2200]">
                 Include Colouring Tick Circle
               </span>
@@ -391,7 +391,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               <label className="block text-[12px] font-extrabold uppercase tracking-wider text-[#2D2200]/70 mb-1">
                 Page Orientation
               </label>
-              <div className="flex rounded-full border-[1.5px] border-[#2D2200] p-1 bg-[#F8F7F4] shadow-flat-ink-sm">
+              <div className="flex rounded-full border-[1.5px] border-[#2D2200] p-1 bg-[#FAF8F0] shadow-flat-ink-sm">
                 <button
                   type="button"
                   onClick={() => onUpdatePlan({ orientation: 'portrait' })}
@@ -427,7 +427,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               );
 
               return (
-                <div className="p-3 rounded-xl border-[1.5px] border-[#2D2200]/30 bg-[#F8F7F4] space-y-3">
+                <div className="p-3 rounded-xl border-[1.5px] border-[#2D2200]/30 bg-[#FAF8F0] space-y-3">
                   <div className="flex items-center justify-between text-[13px] font-extrabold text-[#2D2200]">
                     <div className="flex items-center gap-1">
                       <Clock size={15} />
@@ -507,7 +507,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             })()}
 
             {/* Header Sticker Toggle & Character */}
-            <div className="p-3 rounded-xl border-[1.5px] border-[#2D2200]/30 bg-[#F8F7F4] space-y-3">
+            <div className="p-3 rounded-xl border-[1.5px] border-[#2D2200]/30 bg-[#FAF8F0] space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[13px] font-bold text-[#2D2200] flex items-center gap-1.5">
                   <Sparkles size={15} />

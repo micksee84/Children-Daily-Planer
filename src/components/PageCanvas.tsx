@@ -373,23 +373,17 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
             )}
           </div>
 
-          {/* 5. FOOTER:
-              - 1.5px rule above
-              - Left: "Learn. Wonder. Shine."
-              - Right: "sunshinebrigade.ca · Free for home and classroom use" */}
+          {/* 5. FOOTER: 1.5px rule above, then the tagline. Matches the worksheet builder's
+              shorter footer (the site and "free for home and classroom use" line is gone, and a
+              planner is always one page, so there is no page number). */}
           <div
             style={{
               borderTop: '1.5px solid #2D2200',
               letterSpacing: '0.02em',
             }}
-            className="pt-2 flex items-center justify-between shrink-0 font-['Nunito'] font-semibold text-[11px] sm:text-[12px] text-[#2D2200]"
+            className="pt-2 flex items-center shrink-0 font-['Nunito'] font-bold text-[12px] text-[#2D2200]"
           >
-            <span className="font-extrabold tracking-wider">
-              Learn. Wonder. Shine.
-            </span>
-            <span className="opacity-90">
-              sunshinebrigade.ca · Free for home and classroom use
-            </span>
+            <span>Learn. Wonder. Shine.</span>
           </div>
 
           {/* Freely Placed Character Stickers on the Canvas */}

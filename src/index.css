@@ -1,7 +1,10 @@
 @import "tailwindcss";
 
+/* Brand type, matching the worksheet builder: Nunito for all product UI and copy
+   (Tailwind's font-sans), Super Joyful for titles only. */
 @theme {
   --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+  --font-joyful: 'Super Joyful', 'Nunito', sans-serif;
 }
 
 @layer base {
@@ -28,7 +31,7 @@
   }
 
   body {
-    background-color: #F8F7F4;
+    background-color: #F2F2E2;
     color: #2D2200;
     font-family: 'Nunito', ui-sans-serif, system-ui, -apple-system, sans-serif;
     margin: 0;

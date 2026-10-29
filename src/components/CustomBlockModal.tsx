@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { useDismiss } from '../utils/useDismiss';
 import { AVAILABLE_ICONS } from '../constants/starterBlocks';
 import { BlockIcon } from './BlockIcon';
 import { X, Check } from 'lucide-react';
@@ -24,6 +25,10 @@ export const CustomBlockModal: React.FC<CustomBlockModalProps> = ({
   const [duration, setDuration] = useState(30);
   const [category, setCategory] = useState<'morning' | 'learning' | 'meals' | 'play' | 'winddown' | 'custom'>('custom');
 
+  // Close by clicking outside the dialog or pressing Escape, as well as with the X.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDismiss(dialogRef, isOpen, onClose);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -43,7 +48,12 @@ export const CustomBlockModal: React.FC<CustomBlockModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-[#2D2200]/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white border-[3px] border-[#2D2200] rounded-[24px] shadow-flat-ink p-6 font-['Nunito'] relative animate-in fade-in zoom-in-95 duration-150">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create your own activity"
+        className="w-full max-w-md bg-white border-[3px] border-[#2D2200] rounded-[24px] shadow-flat-ink p-6 font-['Nunito'] relative animate-in fade-in zoom-in-95 duration-150">
         <button
           type="button"
           aria-label="Close modal"
@@ -120,7 +130,7 @@ export const CustomBlockModal: React.FC<CustomBlockModalProps> = ({
             <label className="block text-[12px] font-extrabold uppercase tracking-wider text-[#2D2200]/70 mb-1">
               Select Line Icon (White fill, Ink outline)
             </label>
-            <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto p-2 border-[1.5px] border-[#2D2200]/30 rounded-xl bg-[#F8F7F4]">
+            <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto p-2 border-[1.5px] border-[#2D2200]/30 rounded-xl bg-[#FAF8F0]">
               {AVAILABLE_ICONS.map((iconName) => (
                 <button
                   key={iconName}

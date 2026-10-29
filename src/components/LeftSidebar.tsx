@@ -46,7 +46,7 @@ const DraggableBlockItem: React.FC<{
       {...attributes}
       onClick={handleClick}
       style={{ touchAction: 'none' }}
-      className={`group p-2.5 rounded-[14px] border-[2px] border-[#2D2200] bg-white hover:bg-[#F8F7F4] flex items-center justify-between transition-all select-none shadow-flat-ink-sm ${
+      className={`group p-2.5 rounded-[14px] border-[2px] border-[#2D2200] bg-white hover:bg-[#FAF8F0] flex items-center justify-between transition-all select-none shadow-flat-ink-sm ${
         isPageFull
           ? 'opacity-40 cursor-not-allowed'
           : 'cursor-grab active:cursor-grabbing active:scale-[0.98]'
@@ -103,7 +103,7 @@ const DraggableStickerItem: React.FC<{
       {...attributes}
       onClick={onAdd}
       style={{ touchAction: 'none' }}
-      className={`flex flex-col items-center text-center p-3 rounded-[16px] border-[2px] border-[#2D2200] bg-white hover:bg-[#F8F7F4] shadow-flat-ink transition-transform hover:-translate-y-1 active:translate-y-0.5 cursor-grab active:cursor-grabbing select-none ${
+      className={`flex flex-col items-center text-center p-3 rounded-[16px] border-[2px] border-[#2D2200] bg-white hover:bg-[#FAF8F0] shadow-flat-ink transition-transform hover:-translate-y-1 active:translate-y-0.5 cursor-grab active:cursor-grabbing select-none ${
         isDragging ? 'opacity-40 border-dashed' : ''
       }`}
     >
@@ -169,7 +169,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     <div className="w-80 h-full bg-white border-r-[1.5px] border-[#2D2200] flex flex-col shrink-0 overflow-hidden font-['Nunito']">
       {/* Sidebar Header & Tabs */}
       <div className="p-4 border-b-[1.5px] border-[#2D2200] bg-white">
-        <div className="flex rounded-full border-[1.5px] border-[#2D2200] p-1 bg-[#F8F7F4] shadow-flat-ink-sm">
+        <div className="flex rounded-full border-[1.5px] border-[#2D2200] p-1 bg-[#FAF8F0] shadow-flat-ink-sm">
           <button
             type="button"
             onClick={() => setActiveTab('blocks')}
@@ -288,7 +288,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
       {/* CHARACTERS TAB */}
       {activeTab === 'characters' && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="p-3 bg-[#F8F7F4] rounded-[16px] border-[1.5px] border-[#2D2200]/30 text-[13px] text-[#2D2200] flex items-start gap-2">
+          <div className="p-3 bg-[#FAF8F0] rounded-[16px] border-[1.5px] border-[#2D2200]/30 text-[13px] text-[#2D2200] flex items-start gap-2">
             <HelpCircle size={16} className="shrink-0 mt-0.5 text-[#2D2200]" />
             <span>
               Characters are the <strong>only colour</strong> on the page. Drag them onto the schedule or tap to add.

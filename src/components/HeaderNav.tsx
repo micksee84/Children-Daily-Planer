@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { useDismiss } from '../utils/useDismiss';
 import { SchedulePlan } from '../types';
 import {
   Printer,
@@ -62,6 +63,9 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   const [isPlanDropdownOpen, setIsPlanDropdownOpen] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [tempName, setTempName] = useState(currentPlan.name);
+  // The saved-schedules menu closes by clicking outside it or pressing Escape.
+  const planMenuRef = useRef<HTMLDivElement>(null);
+  useDismiss(planMenuRef, isPlanDropdownOpen, () => setIsPlanDropdownOpen(false));
 
   const handleRenameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,13 +86,14 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               src={`${import.meta.env.BASE_URL}sb-logo-icon.svg`}
               alt="Sunshine Brigade"
               draggable={false}
-              className="h-8 w-auto select-none"
+              className="h-8 sm:h-[31px] w-auto select-none"
               loading="eager"
             />
           </picture>
           <span className="hidden min-[1440px]:block h-6 w-[1.5px] bg-[#2D2200]/20" aria-hidden="true" />
-          {/* App name: Super Joyful ink die-cut (screen header, never under 24px) */}
-          <span className="hidden min-[1440px]:block ink-die-cut text-[24px] whitespace-nowrap">
+          {/* App name: plain Super Joyful in ink, no sticker outline or shadow (never under 24px),
+              matching the worksheet builder */}
+          <span className="hidden min-[1440px]:block font-joyful font-normal text-[24px] leading-none text-[#2D2200] whitespace-nowrap">
             My day planner
           </span>
         </h1>
@@ -96,7 +101,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
         <div className="hidden sm:block h-6 w-[1.5px] bg-[#2D2200]/20" />
 
         {/* Schedule Selector & Manager */}
-        <div className="relative">
+        <div ref={planMenuRef} className="relative">
           {isRenaming ? (
             <form onSubmit={handleRenameSubmit} className="flex items-center gap-1.5">
               <input
@@ -216,7 +221,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
 
       {/* Center: Undo / Redo & Zoom Controls */}
       <div className="hidden lg:flex items-center gap-2">
-        <div className="flex items-center bg-[#F8F7F4] border-[1.5px] border-[#2D2200] rounded-full p-0.5 shadow-flat-ink-sm">
+        <div className="flex items-center bg-[#FAF8F0] border-[1.5px] border-[#2D2200] rounded-full p-0.5 shadow-flat-ink-sm">
           <button
             type="button"
             aria-label="Undo"
@@ -263,7 +268,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
         </button>
 
         {/* Zoom controls */}
-        <div className="flex items-center bg-[#F8F7F4] border-[1.5px] border-[#2D2200] rounded-full p-0.5 shadow-flat-ink-sm">
+        <div className="flex items-center bg-[#FAF8F0] border-[1.5px] border-[#2D2200] rounded-full p-0.5 shadow-flat-ink-sm">
           <button
             type="button"
             aria-label="Zoom out"

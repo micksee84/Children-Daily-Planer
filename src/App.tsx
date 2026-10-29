@@ -238,6 +238,13 @@ export default function App() {
         return;
       }
 
+      // Escape closes the block or sticker settings by deselecting, like clicking the page
+      if (!isInput && e.key === 'Escape' && (selectedBlockId || selectedStickerId)) {
+        setSelectedBlockId(null);
+        setSelectedStickerId(null);
+        return;
+      }
+
       // Delete block or sticker
       if (!isInput && (e.key === 'Delete' || e.key === 'Backspace')) {
         if (selectedBlockId) {
@@ -838,7 +845,7 @@ export default function App() {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="w-screen h-screen flex flex-col bg-[#F8F7F4] text-[#2D2200] overflow-hidden">
+      <div className="w-screen h-screen flex flex-col bg-[#F2F2E2] text-[#2D2200] overflow-hidden">
         {/* Top Header Navigation */}
         <HeaderNav
           plans={plansState.plans}
@@ -891,7 +898,7 @@ export default function App() {
               setSelectedBlockId(null);
               setSelectedStickerId(null);
             }}
-            className="flex-1 h-full overflow-auto bg-[#ECEAE4] flex items-center justify-center p-4 sm:p-8 relative"
+            className="flex-1 h-full overflow-auto bg-[#EAE6D6] flex items-center justify-center p-4 sm:p-8 relative"
           >
             {/* Quick Drawer toggles for smaller screens */}
             <div className="md:hidden absolute top-3 left-3 z-30 flex gap-2">
