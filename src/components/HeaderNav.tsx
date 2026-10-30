@@ -15,6 +15,8 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  HardDriveDownload,
+  FolderInput,
 } from 'lucide-react';
 
 export type PlannerView = 'day' | 'week';
@@ -35,6 +37,8 @@ interface HeaderNavProps {
   onDuplicatePlan: () => void;
   onRenamePlan: (newName: string) => void;
   onDeletePlan: () => void;
+  onSaveBackup: () => void;
+  onOpenBackup: (file: File) => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -59,6 +63,8 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   onDuplicatePlan,
   onRenamePlan,
   onDeletePlan,
+  onSaveBackup,
+  onOpenBackup,
   onUndo,
   onRedo,
   canUndo,
@@ -77,6 +83,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   const [tempName, setTempName] = useState(currentPlan.name);
   // The saved-schedules menu closes by clicking outside it or pressing Escape.
   const planMenuRef = useRef<HTMLDivElement>(null);
+  const backupInputRef = useRef<HTMLInputElement>(null);
   useDismiss(planMenuRef, isPlanDropdownOpen, () => setIsPlanDropdownOpen(false));
 
   const handleRenameSubmit = (e: React.FormEvent) => {
@@ -246,6 +253,48 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                     <span>Delete Schedule</span>
                   </button>
                 )}
+              </div>
+
+              {/* Back up and restore: schedules only live in this browser */}
+              <div className="border-t-[1.5px] border-[#2D2200]/20 mt-1 pt-1 space-y-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSaveBackup();
+                    setIsPlanDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 rounded-xl text-[13px] font-bold hover:bg-[#F2F2E2] text-[#2D2200] flex items-center gap-2"
+                >
+                  <HardDriveDownload size={14} strokeWidth={2.5} />
+                  <span>Save a backup file</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => backupInputRef.current?.click()}
+                  className="w-full text-left px-3 py-1.5 rounded-xl text-[13px] font-bold hover:bg-[#F2F2E2] text-[#2D2200] flex items-center gap-2"
+                >
+                  <FolderInput size={14} strokeWidth={2.5} />
+                  <span>Open a backup file</span>
+                </button>
+                <input
+                  ref={backupInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) {
+                      onOpenBackup(file);
+                      setIsPlanDropdownOpen(false);
+                    }
+                  }}
+                />
+                <p className="px-3 pb-1 text-[11px] leading-snug text-[#2D2200]/60">
+                  Your schedules are saved in this browser only. Keep a backup to move them or keep them safe.
+                </p>
               </div>
             </div>
           )}

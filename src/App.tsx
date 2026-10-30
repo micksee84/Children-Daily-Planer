@@ -26,8 +26,9 @@ import {
 } from './types';
 import { StarterBlockTemplate, createBlockFromTemplate } from './constants/starterBlocks';
 import { createInitialPlan } from './constants/templates';
-import { loadSavedPlans, savePlansToStorage } from './utils/storage';
+import { downloadBackup, loadSavedPlans, readBackup, savePlansToStorage } from './utils/storage';
 import { exportPageToPdf } from './utils/pdfExport';
+import { blockRect, playDust, playLanding, stopLanding } from './utils/motion';
 import {
   DAILY_COLUMN,
   GridColumnKey,
@@ -41,6 +42,8 @@ import {
 import { GridGhost } from './components/ScheduleGrid';
 import { getPlanCapacityInfo, validateTimeRange } from './utils/pageLimits';
 import { HeaderNav, PlannerView } from './components/HeaderNav';
+import { DayKey, WEEK_DAYS } from './components/CopyDayPanel';
+import { Routine, buildRoutine } from './constants/routines';
 import { LeftSidebar } from './components/LeftSidebar';
 import { RightSidebar } from './components/RightSidebar';
 import { PageCanvas } from './components/PageCanvas';
@@ -166,10 +169,13 @@ export default function App() {
   }, [historyIndex, history]);
 
   // Block deletion with toast & undo
+  // `fromRect` is where the block was let go when it was dragged off the page; otherwise
+  // the dust puffs from where the block sits on the sheet.
   const handleDeleteBlock = useCallback(
-    (id: string) => {
+    (id: string, fromRect?: DOMRect | null) => {
       const blockToDelete = currentPlan.blocks.find((b) => b.id === id);
       if (!blockToDelete) return;
+      playDust(fromRect ?? blockRect(id));
 
       const nextBlocks = currentPlan.blocks.filter((b) => b.id !== id);
       updateCurrentPlan({ blocks: nextBlocks });
@@ -183,6 +189,7 @@ export default function App() {
           updateCurrentPlan({
             blocks: [...currentPlan.blocks],
           });
+          playLanding([id]);
         },
       });
     },
@@ -325,6 +332,7 @@ export default function App() {
       blocks: [...currentPlan.blocks, newBlock],
     });
     setSelectedBlockId(newBlock.id);
+    playLanding([newBlock.id]);
     setSelectedStickerId(null);
   };
 
@@ -366,6 +374,7 @@ export default function App() {
       blocks: [...currentPlan.blocks, newBlock],
     });
     setSelectedBlockId(newBlock.id);
+    playLanding([newBlock.id]);
     setSelectedStickerId(null);
   };
 
@@ -408,6 +417,94 @@ export default function App() {
       blocks: [...currentPlan.blocks, duplicated],
     });
     setSelectedBlockId(duplicated.id);
+    playLanding([duplicated.id]);
+  };
+
+  // Week view: copy one day's activities onto other days, replacing what was there.
+  const handleCopyDay = (from: DayKey, to: DayKey[]) => {
+    const dayOf = (b: ActivityBlock): DayKey => b.dayOfWeek ?? 'mon';
+    const source = currentPlan.blocks.filter((b) => dayOf(b) === from);
+    if (source.length === 0 || to.length === 0) return;
+
+    const before = currentPlan.blocks;
+    const stamp = Date.now();
+    const copies: ActivityBlock[] = to.flatMap((day, d) =>
+      source.map((b, i) => ({
+        ...b,
+        id: `block-${stamp}-${d}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+        dayOfWeek: day,
+      }))
+    );
+    const kept = before.filter((b) => !to.includes(dayOf(b)));
+    updateCurrentPlan({ blocks: [...kept, ...copies] });
+    setSelectedBlockId(null);
+    playLanding(copies.map((c) => c.id), 18);
+
+    const fromLabel = WEEK_DAYS.find((d) => d.key === from)?.label ?? 'that day';
+    setToast({
+      id: `toast-${stamp}`,
+      message: `Copied ${fromLabel} to ${to.length} ${to.length === 1 ? 'day' : 'days'}`,
+      onUndo: () => updateCurrentPlan({ blocks: [...before] }),
+    });
+  };
+
+  // Day and Week: start from a ready-made routine. It replaces the page's activities and
+  // hours; the toast can put everything back.
+  const handleApplyRoutine = (routine: Routine) => {
+    const before = {
+      blocks: currentPlan.blocks,
+      timeStartHour: currentPlan.timeStartHour,
+      timeEndHour: currentPlan.timeEndHour,
+      timeIncrement: currentPlan.timeIncrement,
+      title: currentPlan.title,
+      weekdaysOnly: currentPlan.weekdaysOnly,
+    };
+    const built = buildRoutine(routine);
+    updateCurrentPlan({
+      ...built,
+      ...(routine.template === 'weekly' ? { weekdaysOnly: true } : {}),
+    });
+    setSelectedBlockId(null);
+    setSelectedStickerId(null);
+    playLanding(built.blocks.map((b) => b.id), routine.template === 'weekly' ? 12 : 40);
+    setToast({
+      id: `toast-${Date.now()}`,
+      message: `Started from ${routine.name}`,
+      onUndo: () => updateCurrentPlan({ ...before }),
+    });
+  };
+
+  // Back up and restore
+  const handleSaveBackup = () => {
+    downloadBackup(plansState.plans);
+    setToast({
+      id: `toast-${Date.now()}`,
+      message: `Saved ${plansState.plans.length} ${plansState.plans.length === 1 ? 'schedule' : 'schedules'} to a backup file`,
+      duration: 3500,
+    });
+  };
+
+  const handleOpenBackup = async (file: File) => {
+    try {
+      const restored = readBackup(await file.text(), plansState.plans);
+      setPlansState((prev) => ({ plans: [...prev.plans, ...restored], activeId: restored[0].id }));
+      setHistory([restored[0]]);
+      setHistoryIndex(0);
+      setSelectedBlockId(null);
+      setSelectedStickerId(null);
+      playLanding(restored[0].blocks.map((b) => b.id), 12);
+      setToast({
+        id: `toast-${Date.now()}`,
+        message: `Opened ${restored.length} ${restored.length === 1 ? 'schedule' : 'schedules'} from the backup`,
+        duration: 4000,
+      });
+    } catch {
+      setToast({
+        id: `toast-${Date.now()}`,
+        message: "That file isn't a planner backup. Choose a file saved with 'Save a backup file'.",
+        duration: 5000,
+      });
+    }
   };
 
   // Sticker management
@@ -678,7 +775,11 @@ export default function App() {
     // 1. DRAGGED OFF THE PAGE: delete (with undo toast)
     if (!over) {
       if (activeData.type === 'planner-block') {
-        handleDeleteBlock(activeData.block.id);
+        const r = active.rect.current.translated;
+        handleDeleteBlock(
+          activeData.block.id,
+          r ? new DOMRect(r.left, r.top, r.width, r.height) : null
+        );
       } else if (activeData.type === 'planner-sticker') {
         handleDeleteSticker(activeData.sticker.id);
       }
@@ -712,6 +813,7 @@ export default function App() {
         Object.assign(newBlock, toBlockPosition(spot.column, spot.row, spot.span));
         updateCurrentPlan({ blocks: [...currentPlan.blocks, newBlock] });
         setSelectedBlockId(newBlock.id);
+    playLanding([newBlock.id]);
         setSelectedStickerId(null);
         return;
       }
@@ -726,6 +828,7 @@ export default function App() {
         newBlock.slotIndex = currentPlan.blocks.length;
         updateCurrentPlan({ blocks: [...currentPlan.blocks, newBlock] });
         setSelectedBlockId(newBlock.id);
+    playLanding([newBlock.id]);
         setSelectedStickerId(null);
         return;
       }
@@ -737,6 +840,7 @@ export default function App() {
         const otherBlocks = currentPlan.blocks.filter((b) => b.isFirstThenSlot !== slot);
         updateCurrentPlan({ blocks: [...otherBlocks, newBlock] });
         setSelectedBlockId(newBlock.id);
+    playLanding([newBlock.id]);
         setSelectedStickerId(null);
       }
       return;
@@ -757,6 +861,7 @@ export default function App() {
         }
         // Dropped on the page but not on a row: it simply stays where it was.
         setSelectedBlockId(block.id);
+        if (landing?.ok) playLanding([block.id]);
         return;
       }
 
@@ -768,6 +873,7 @@ export default function App() {
         const updated: ActivityBlock = { ...block, isFirstThenSlot: targetSlot };
         updateCurrentPlan({ blocks: [...otherBlocks, updated] });
         setSelectedBlockId(block.id);
+        playLanding([block.id]);
         return;
       }
     }
@@ -858,6 +964,7 @@ export default function App() {
       setIsExportingPdf(true);
       setSelectedBlockId(null);
       setSelectedStickerId(null);
+      stopLanding(canvasRef.current);
       const isLandscape = currentPlan.orientation === 'landscape';
       const cleanName = (currentPlan.name || 'My_day').replace(/[^a-zA-Z0-9_-]/g, '_');
       await exportPageToPdf(
@@ -906,6 +1013,8 @@ export default function App() {
           onDuplicatePlan={handleDuplicatePlan}
           onRenamePlan={handleRenamePlan}
           onDeletePlan={handleDeletePlan}
+          onSaveBackup={handleSaveBackup}
+          onOpenBackup={handleOpenBackup}
           onUndo={handleUndo}
           onRedo={handleRedo}
           canUndo={historyIndex > 0}
@@ -1027,6 +1136,7 @@ export default function App() {
                   };
                   updateCurrentPlan({ blocks: [...currentPlan.blocks, newBlock] });
                   setSelectedBlockId(newBlock.id);
+    playLanding([newBlock.id]);
                 }}
                 onAssignToSlot={(slot) => {
                   const newBlock: ActivityBlock = {
@@ -1040,6 +1150,7 @@ export default function App() {
                   };
                   updateCurrentPlan({ blocks: [...currentPlan.blocks, newBlock] });
                   setSelectedBlockId(newBlock.id);
+    playLanding([newBlock.id]);
                 }}
               />
             </div>
@@ -1062,6 +1173,8 @@ export default function App() {
               onUpdateSticker={handleUpdateSticker}
               onDeleteSticker={handleDeleteSticker}
               onChangeTemplate={handleChangeTemplate}
+              onCopyDay={handleCopyDay}
+              onApplyRoutine={handleApplyRoutine}
             />
           </div>
         </div>

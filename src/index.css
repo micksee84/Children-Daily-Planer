@@ -116,6 +116,29 @@
   border-image: repeating-linear-gradient(to right, #B6B2A6 0, #B6B2A6 12px, transparent 12px, transparent 24px) 1;
 }
 
+/* Landing bounce (utils/motion.ts): a quick squash and stretch from the bottom edge when
+   a block is dropped, moved or added. Screen only: print hides it and PDF export stops it. */
+@keyframes sb-land {
+  0% { transform: scale(1.06, 0.84); }
+  30% { transform: scale(0.95, 1.07); }
+  55% { transform: scale(1.025, 0.975); }
+  78% { transform: scale(0.995, 1.01); }
+  100% { transform: scale(1, 1); }
+}
+@keyframes sb-land-fade {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+.sb-land {
+  animation: sb-land 320ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  transform-origin: 50% 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-land {
+    animation: sb-land-fade 160ms ease-out both;
+  }
+}
+
 /* Print Styles
    On screen the print copy (.print-root, rendered by App into <body>) is hidden.
    In print the whole editor (#root) is hidden and only that copy prints, at true
@@ -145,6 +168,10 @@
 
   .no-print {
     display: none !important;
+  }
+
+  .sb-land {
+    animation: none !important;
   }
 
   .print-root .print-page-container {

@@ -15,7 +15,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
  * blocks or stickers that are not usable are dropped, so an old or damaged save opens
  * instead of crashing the planner. Returns null when there is nothing to recover.
  */
-function sanitizePlan(raw: unknown): SchedulePlan | null {
+export function sanitizePlan(raw: unknown): SchedulePlan | null {
   if (!isRecord(raw) || typeof raw.id !== 'string' || !raw.id) return null;
   const template = TEMPLATES.includes(raw.template as TemplateType)
     ? (raw.template as TemplateType)
@@ -69,4 +69,52 @@ export function savePlansToStorage(plans: SchedulePlan[], activeId: string): voi
   } catch (err) {
     console.error('Failed to save plans to localStorage', err);
   }
+}
+
+/* ---------------- Back up and restore ----------------
+   Schedules only live in this browser, so clearing it loses them. A backup file holds
+   every schedule; opening one adds them back next to what is already here. */
+
+const BACKUP_KIND = 'sunshine-brigade-planner-backup';
+
+export function downloadBackup(plans: SchedulePlan[]): void {
+  const data = { kind: BACKUP_KIND, version: 1, savedAt: new Date().toISOString(), plans };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const day = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `Sunshine-Brigade-planner-backup-${day}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Reads a backup file and returns its schedules, each checked like a saved plan and given
+ * a fresh id so it never replaces one already here. Throws if the file is not a backup.
+ */
+export function readBackup(text: string, existing: SchedulePlan[]): SchedulePlan[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('not-json');
+  }
+  const list = isRecord(parsed) && Array.isArray(parsed.plans) ? parsed.plans : Array.isArray(parsed) ? parsed : null;
+  if (!list) throw new Error('not-backup');
+
+  const names = new Set(existing.map((p) => p.name));
+  const plans = list
+    .map(sanitizePlan)
+    .filter((p): p is SchedulePlan => p !== null)
+    .map((p, i) => {
+      let name = p.name || 'My schedule';
+      if (names.has(name)) name = `${name} (restored)`;
+      names.add(name);
+      return { ...p, id: `plan-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`, name };
+    });
+  if (plans.length === 0) throw new Error('empty');
+  return plans;
 }

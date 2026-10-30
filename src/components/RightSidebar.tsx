@@ -10,6 +10,9 @@ import { AVAILABLE_ICONS } from '../constants/starterBlocks';
 import { TEMPLATE_INFO } from '../constants/templates';
 import { validateTimeRange } from '../utils/pageLimits';
 import { BlockIcon } from './BlockIcon';
+import { CopyDayPanel, DayKey } from './CopyDayPanel';
+import { RoutinePanel } from './RoutinePanel';
+import { Routine } from '../constants/routines';
 import {
   Settings,
   Trash2,
@@ -33,7 +36,12 @@ interface RightSidebarProps {
   onUpdateSticker: (id: string, updates: Partial<CharacterSticker>) => void;
   onDeleteSticker: (id: string) => void;
   onChangeTemplate: (template: TemplateType) => void;
+  onCopyDay: (from: DayKey, to: DayKey[]) => void;
+  onApplyRoutine: (routine: Routine) => void;
 }
+
+const formatHour = (h: number) =>
+  `${h % 12 === 0 ? 12 : h % 12}:00 ${h < 12 ? 'AM' : 'PM'}`;
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
   plan,
@@ -46,6 +54,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onUpdateSticker,
   onDeleteSticker,
   onChangeTemplate,
+  onCopyDay,
+  onApplyRoutine,
 }) => {
   return (
     <div className="w-80 h-full bg-white border-l-[1.5px] border-[#2D2200] flex flex-col shrink-0 overflow-y-auto font-['Nunito']">
@@ -314,6 +324,14 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
           /* CASE 3: GENERAL PAGE SETTINGS */
           /* ========================================================= */
           <div className="space-y-4">
+            {/* Day and Week: ready-made routines */}
+            {(plan.template === 'daily' || plan.template === 'weekly') && (
+              <RoutinePanel plan={plan} onApplyRoutine={onApplyRoutine} />
+            )}
+
+            {/* Week view: copy one day to others */}
+            {plan.template === 'weekly' && <CopyDayPanel plan={plan} onCopyDay={onCopyDay} />}
+
             {/* Template Selector */}
             <div>
               <label className="block text-[12px] font-extrabold uppercase tracking-wider text-[#2D2200]/70 mb-1.5 flex items-center gap-1">
@@ -456,18 +474,19 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                         value={plan.timeStartHour}
                         onChange={(e) => {
                           const val = parseInt(e.target.value, 10);
-                          const check = validateTimeRange(val, plan.timeEndHour, plan.timeIncrement, plan.orientation);
-                          if (check.valid) {
-                            onUpdatePlan({ timeStartHour: val });
-                          } else {
-                            onUpdatePlan({ timeStartHour: val });
-                          }
+                          // Keep the end after the start.
+                          onUpdatePlan(
+                            plan.timeEndHour > val
+                              ? { timeStartHour: val }
+                              : { timeStartHour: val, timeEndHour: Math.min(23, val + 2) }
+                          );
                         }}
                         className="w-full p-1.5 rounded-lg border border-[#2D2200] bg-white font-bold"
                       >
-                        {Array.from({ length: 12 }, (_, i) => i + 5).map((h) => (
+                        {/* 5am to 9pm, so morning and bedtime routines both fit */}
+                        {Array.from({ length: 17 }, (_, i) => i + 5).map((h) => (
                           <option key={h} value={h}>
-                            {h}:00 {h < 12 ? 'AM' : 'PM'}
+                            {formatHour(h)}
                           </option>
                         ))}
                       </select>
@@ -483,9 +502,10 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                         }}
                         className="w-full p-1.5 rounded-lg border border-[#2D2200] bg-white font-bold"
                       >
-                        {Array.from({ length: 12 }, (_, i) => i + 12).map((h) => (
+                        {/* Any hour after the start, up to 11pm */}
+                        {Array.from({ length: 23 - plan.timeStartHour }, (_, i) => plan.timeStartHour + 1 + i).map((h) => (
                           <option key={h} value={h}>
-                            {h === 12 ? 12 : h - 12}:00 PM
+                            {formatHour(h)}
                           </option>
                         ))}
                       </select>

@@ -30,7 +30,7 @@ export const DailyRoutineView: React.FC<DailyRoutineViewProps> = ({
       {plan.blocks.length === 0 && !ghost && !isPrintMode && (
         <div className="no-print absolute inset-0 flex flex-col items-center justify-center p-6 text-center pointer-events-none z-10">
           <span className="font-['Nunito'] font-extrabold text-[16px] text-[#2D2200]/60 bg-white px-3 py-1 rounded-full">
-            Drag activities here to build your day.
+            Drag activities here, or start from a routine on the right.
           </span>
           <span className="font-['Nunito'] text-[13px] text-[#2D2200]/60 bg-white px-3 mt-1 rounded-full">
             Each box is {plan.timeIncrement} minutes. Drag a block's bottom edge to make it longer.
