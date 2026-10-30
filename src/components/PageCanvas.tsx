@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { ActivityBlock, CharacterSticker, SchedulePlan } from '../types';
-import { SunshineLogo } from './SunshineLogo';
 import { CharacterStickerItem } from './CharacterStickerItem';
 
 /** 0.25in at 96px per inch: the margin kept clear on every edge of the sheet. */
@@ -63,6 +62,12 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
     forwardedRef
   ) => {
     const isLandscape = plan.orientation === 'landscape';
+    // The title shares the header row with the centred date, so long titles step down in size
+    // to stay on their side of the page (Super Joyful is about 0.5em per character).
+    const titleBase = isLandscape ? 44 : 40;
+    const titleRoom = isLandscape ? 390 : 270;
+    const titleChars = Math.max(1, (plan.title || 'My day').length);
+    const titleSize = Math.max(18, Math.min(titleBase, Math.floor(titleRoom / (titleChars * 0.5))));
     const pageWidth = isLandscape ? 1056 : 816;
     const pageHeight = isLandscape ? 816 : 1056;
 
@@ -154,22 +159,14 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
           style={{ padding: `${PAGE_MARGIN_PX}px`, gap: `${SECTION_GAP_PX}px` }}
           className="w-full h-full flex flex-col relative"
         >
-          {/* 1. HEADER ROW: logo on the left margin, title and date in the centre, name on the
-              right margin. The two side columns share the leftover width equally, so the title
-              stays centred on the page whatever its length. */}
+          {/* 1. HEADER ROW: title on the left margin, date badge centred on the page, name on
+              the right margin. The two side columns share the leftover width equally, so the
+              date stays centred whatever the title's length. */}
           <div
             className="shrink-0 grid items-center gap-4"
             style={{ gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)' }}
           >
-            <div className="justify-self-start">
-              <SunshineLogo height={30} />
-            </div>
-
-            <div
-              className={`flex items-center z-10 ${
-                isLandscape ? 'flex-row gap-4' : 'flex-col gap-1.5'
-              }`}
-            >
+            <div className="justify-self-start min-w-0 z-10">
               {/* Title Sticker: Click to edit */}
               {isEditingTitle && !isPrintMode ? (
                 <input
@@ -185,9 +182,8 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
                       setIsEditingTitle(false);
                     }
                   }}
-                  className={`ink-sticker-title ${
-                    isLandscape ? 'text-[44px]' : 'text-[40px]'
-                  } font-normal tracking-wide bg-transparent border-b-[2px] border-dashed border-[#2D2200] focus:outline-none w-full`}
+                  style={{ fontSize: `${titleSize}px` }}
+                  className={`ink-sticker-title font-normal tracking-wide bg-transparent border-b-[2px] border-dashed border-[#2D2200] focus:outline-none w-full`}
                 />
               ) : (
                 <h1
@@ -198,14 +194,16 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
                     }
                   }}
                   title="Click to edit title"
-                  className={`ink-sticker-title ${
-                    isLandscape ? 'text-[44px]' : 'text-[40px]'
-                  } font-normal tracking-wide cursor-pointer no-print:hover:ring-2 no-print:hover:ring-dashed no-print:hover:ring-[#2D2200] rounded-lg px-1`}
+                  style={{ fontSize: `${titleSize}px` }}
+                  className={`ink-sticker-title font-normal tracking-wide whitespace-nowrap leading-none cursor-pointer no-print:hover:ring-2 no-print:hover:ring-dashed no-print:hover:ring-[#2D2200] rounded-lg`}
                 >
                   {plan.title || "My day"}
                 </h1>
               )}
 
+            </div>
+
+            <div className="justify-self-center z-10">
               {/* Date / Week Range Badge: Click to edit */}
               {isEditingDate && !isPrintMode ? (
                 <input
@@ -361,17 +359,17 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
             )}
           </div>
 
-          {/* 5. FOOTER: 1.5px rule above, then the tagline. Matches the worksheet builder's
-              shorter footer (the site and "free for home and classroom use" line is gone, and a
-              planner is always one page, so there is no page number). */}
+          {/* 5. FOOTER: 1.5px rule above, the tagline on the left margin and the website on
+              the right margin. A planner is always one page, so there is no page number. */}
           <div
             style={{
               borderTop: '1.5px solid #2D2200',
               letterSpacing: '0.02em',
             }}
-            className="pt-2 flex items-center shrink-0 font-['Nunito'] font-bold text-[12px] leading-none text-[#2D2200]"
+            className="pt-2 flex items-center justify-between shrink-0 font-['Nunito'] font-bold text-[12px] leading-none text-[#2D2200]"
           >
             <span>Learn. Wonder. Shine.</span>
+            <span>sunshinebrigade.ca</span>
           </div>
 
           {/* Freely Placed Character Stickers on the Canvas */}

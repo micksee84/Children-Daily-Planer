@@ -28,7 +28,7 @@ export function getAvailableFrameHeight(orientation: 'portrait' | 'landscape'): 
   // Measured from the page layout: Letter page minus the 0.25in margins, the one-row
   // header, the footer, the 16px gaps and the grid's own padding. Landscape also loses
   // the day-name row. Re-measure if the page layout changes.
-  return orientation === 'landscape' ? 604 : 844;
+  return orientation === 'landscape' ? 604 : 878;
 }
 
 /**
