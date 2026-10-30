@@ -317,10 +317,15 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             {/* Template Selector */}
             <div>
               <label className="block text-[12px] font-extrabold uppercase tracking-wider text-[#2D2200]/70 mb-1.5 flex items-center gap-1">
-                <Layout size={14} /> Template
+                <Layout size={14} /> Other layouts
               </label>
+              {/* Day and Week live in the switch at the top of the page; these two turn the
+                  current schedule into a different kind of sheet. */}
+              <p className="text-[11px] text-[#2D2200]/70 leading-snug mb-1.5">
+                Switch between Day and Week at the top. These turn this schedule into another kind of sheet.
+              </p>
               <div className="space-y-1.5">
-                {(['daily', 'weekly', 'checklist', 'first-then'] as TemplateType[]).map((t) => (
+                {(['checklist', 'first-then'] as TemplateType[]).map((t) => (
                   <button
                     key={t}
                     type="button"

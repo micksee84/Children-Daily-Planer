@@ -17,9 +17,19 @@ import {
   Maximize2,
 } from 'lucide-react';
 
+export type PlannerView = 'day' | 'week';
+
+const VIEWS: Array<{ key: PlannerView; label: string; hint: string }> = [
+  { key: 'day', label: 'Day', hint: 'Plan one day, from wake up to bedtime' },
+  { key: 'week', label: 'Week', hint: 'Plan the whole week on one landscape page' },
+];
+
 interface HeaderNavProps {
   plans: SchedulePlan[];
   currentPlan: SchedulePlan;
+  /** Which tab is showing; null for the Checklist and First–Then layouts. */
+  plannerView: PlannerView | null;
+  onSwitchView: (view: PlannerView) => void;
   onSelectPlan: (id: string) => void;
   onCreateNewPlan: () => void;
   onDuplicatePlan: () => void;
@@ -42,6 +52,8 @@ interface HeaderNavProps {
 export const HeaderNav: React.FC<HeaderNavProps> = ({
   plans,
   currentPlan,
+  plannerView,
+  onSwitchView,
   onSelectPlan,
   onCreateNewPlan,
   onDuplicatePlan,
@@ -90,18 +102,46 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               loading="eager"
             />
           </picture>
-          <span className="hidden min-[1440px]:block h-6 w-[1.5px] bg-[#2D2200]/20" aria-hidden="true" />
+          <span className="hidden min-[1600px]:block h-6 w-[1.5px] bg-[#2D2200]/20" aria-hidden="true" />
           {/* App name: plain Super Joyful in ink, no sticker outline or shadow (never under 24px),
               matching the worksheet builder */}
-          <span className="hidden min-[1440px]:block font-joyful font-normal text-[24px] leading-none text-[#2D2200] whitespace-nowrap">
-            My day planner
+          <span className="hidden min-[1600px]:block font-joyful font-normal text-[24px] leading-none text-[#2D2200] whitespace-nowrap">
+            My planner
           </span>
         </h1>
+
+        {/* Day / Week switch: each view keeps its own schedule */}
+        <div
+          role="tablist"
+          aria-label="Planner view"
+          className="flex items-center p-1 rounded-full border-[1.5px] border-[#2D2200] bg-[#F2F2E2] shrink-0"
+        >
+          {VIEWS.map((v) => {
+            const active = plannerView === v.key;
+            return (
+              <button
+                key={v.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                title={v.hint}
+                onClick={() => onSwitchView(v.key)}
+                className={`px-3.5 sm:px-4 py-1 rounded-full text-[13px] sm:text-[14px] font-extrabold transition-all focus-ink ${
+                  active
+                    ? 'bg-[#2D2200] text-white shadow-flat-ink'
+                    : 'text-[#2D2200] hover:bg-white'
+                }`}
+              >
+                {v.label}
+              </button>
+            );
+          })}
+        </div>
 
         <div className="hidden sm:block h-6 w-[1.5px] bg-[#2D2200]/20" />
 
         {/* Schedule Selector & Manager */}
-        <div ref={planMenuRef} className="relative">
+        <div ref={planMenuRef} className="relative hidden sm:block">
           {isRenaming ? (
             <form onSubmit={handleRenameSubmit} className="flex items-center gap-1.5">
               <input
@@ -213,14 +253,14 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
 
         {/* Space Usage Counter */}
         {capacityLabel && (
-          <div className="hidden md:flex items-center px-3 py-1 rounded-full border-[1.5px] border-[#2D2200] bg-white text-[12px] font-extrabold text-[#2D2200] shadow-flat-ink-sm">
+          <div className="hidden min-[1440px]:flex items-center px-3 py-1 rounded-full border-[1.5px] border-[#2D2200] bg-white text-[12px] font-extrabold text-[#2D2200] shadow-flat-ink-sm whitespace-nowrap">
             <span>{capacityLabel}</span>
           </div>
         )}
       </div>
 
-      {/* Center: Undo / Redo & Zoom Controls */}
-      <div className="hidden lg:flex items-center gap-2">
+      {/* Center: Undo / Redo & Zoom Controls (wide screens; the Day/Week switch takes the room below) */}
+      <div className="hidden xl:flex items-center gap-2">
         <div className="flex items-center bg-[#FAF8F0] border-[1.5px] border-[#2D2200] rounded-full p-0.5 shadow-flat-ink-sm">
           <button
             type="button"
@@ -257,7 +297,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           type="button"
           onClick={onToggleGrayscale}
           title="Preview black-and-white printout"
-          className={`px-3 py-1.5 rounded-full border-[1.5px] border-[#2D2200] text-[12px] font-extrabold flex items-center gap-1.5 transition-all shadow-flat-ink-sm ${
+          className={`px-3 py-1.5 rounded-full border-[1.5px] border-[#2D2200] text-[12px] font-extrabold flex items-center gap-1.5 whitespace-nowrap transition-all shadow-flat-ink-sm ${
             isGrayscale
               ? 'bg-[#2D2200] text-white'
               : 'bg-white text-[#2D2200] hover:bg-[#F2F2E2]'
@@ -309,10 +349,11 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           type="button"
           onClick={onDownloadPdf}
           disabled={isExportingPdf}
-          className="px-4 sm:px-5 py-2 rounded-full border-[1.5px] border-[#2D2200] bg-white text-[#2D2200] font-extrabold text-[13px] sm:text-[14px] shadow-flat-ink hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          className="px-4 sm:px-5 py-2 rounded-full border-[1.5px] border-[#2D2200] bg-white text-[#2D2200] font-extrabold text-[13px] sm:text-[14px] shadow-flat-ink hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-50"
         >
           <Download size={16} strokeWidth={2.5} />
-          <span>{isExportingPdf ? 'Exporting...' : 'Download PDF'}</span>
+          <span className="hidden sm:inline">{isExportingPdf ? 'Exporting...' : 'Download PDF'}</span>
+          <span className="sm:hidden">{isExportingPdf ? '…' : 'PDF'}</span>
         </button>
 
         {/* Primary Button: Print */}

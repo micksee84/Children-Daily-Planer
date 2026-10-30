@@ -1,4 +1,5 @@
 import { SchedulePlan, TemplateType } from '../types';
+import { validateTimeRange } from '../utils/pageLimits';
 
 export const TEMPLATE_INFO: Record<
   TemplateType,
@@ -28,7 +29,7 @@ export const TEMPLATE_INFO: Record<
 
 export const createInitialPlan = (template: TemplateType = 'daily'): SchedulePlan => {
   const isLandscape = template === 'weekly' || template === 'first-then';
-  const defaultTitle = 'My day';
+  const defaultTitle = template === 'weekly' ? 'My week' : 'My day';
 
   return {
     id: `plan-${Date.now()}`,
@@ -40,7 +41,9 @@ export const createInitialPlan = (template: TemplateType = 'daily'): SchedulePla
     orientation: isLandscape ? 'landscape' : 'portrait',
     timeStartHour: 7,
     timeEndHour: 19,
-    timeIncrement: 30,
+    // The landscape week page is shorter, so step up to a time step that fits.
+    timeIncrement:
+      validateTimeRange(7, 19, 30, isLandscape ? 'landscape' : 'portrait').valid ? 30 : 60,
     weekdaysOnly: true,
     showTimesOnBlocks: true,
     showCheckboxes: true,

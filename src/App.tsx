@@ -40,7 +40,7 @@ import {
 } from './utils/grid';
 import { GridGhost } from './components/ScheduleGrid';
 import { getPlanCapacityInfo, validateTimeRange } from './utils/pageLimits';
-import { HeaderNav } from './components/HeaderNav';
+import { HeaderNav, PlannerView } from './components/HeaderNav';
 import { LeftSidebar } from './components/LeftSidebar';
 import { RightSidebar } from './components/RightSidebar';
 import { PageCanvas } from './components/PageCanvas';
@@ -488,13 +488,61 @@ export default function App() {
 
   // Schedule Plan CRUD
   const handleSelectPlan = (id: string) => {
+    const target = plansState.plans.find((p) => p.id === id);
     setPlansState((prev) => ({ ...prev, activeId: id }));
+    // Undo history belongs to one schedule, so start it fresh for the one just opened.
+    if (target) {
+      setHistory([target]);
+      setHistoryIndex(0);
+    }
     setSelectedBlockId(null);
     setSelectedStickerId(null);
   };
 
+  // Day / Week switch. Each view keeps its own schedule, like tabs: switching opens the
+  // most recently edited schedule of that kind (or starts a new one) and never converts
+  // or clears the schedule you came from.
+  // Checklist and First–Then layouts sit outside the switch, so neither tab is active for them.
+  const plannerView: PlannerView | null =
+    currentPlan.template === 'weekly' ? 'week' : currentPlan.template === 'daily' ? 'day' : null;
+
+  const handleSwitchView = useCallback(
+    (view: PlannerView) => {
+      const template: TemplateType = view === 'week' ? 'weekly' : 'daily';
+      if (currentPlan.template === template) return;
+
+      const existing = [...plansState.plans]
+        .filter((p) => p.template === template)
+        .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+      const target = existing ?? createInitialPlan(template);
+
+      setPlansState((prev) => ({
+        plans: existing ? prev.plans : [...prev.plans, target],
+        activeId: target.id,
+      }));
+      setHistory([target]);
+      setHistoryIndex(0);
+      setSelectedBlockId(null);
+      setSelectedStickerId(null);
+    },
+    [currentPlan.template, plansState.plans]
+  );
+
+  // Links can open a view directly: ?view=week or ?view=day (used by the website's tool cards).
+  useEffect(() => {
+    try {
+      const requested = new URLSearchParams(window.location.search).get('view');
+      if (requested === 'week' || requested === 'day') handleSwitchView(requested);
+    } catch {
+      // Ignore a malformed URL and open the last schedule as usual.
+    }
+    // Run once on first load only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleCreateNewPlan = () => {
-    const newPlan = createInitialPlan('daily');
+    // A new schedule matches the view you're in, so "New" in Week view makes a week.
+    const newPlan = createInitialPlan(currentPlan.template === 'weekly' ? 'weekly' : 'daily');
     setPlansState((prev) => ({
       plans: [...prev.plans, newPlan],
       activeId: newPlan.id,
@@ -850,6 +898,8 @@ export default function App() {
         <HeaderNav
           plans={plansState.plans}
           currentPlan={currentPlan}
+          plannerView={plannerView}
+          onSwitchView={handleSwitchView}
           capacityLabel={capacityInfo.label}
           onSelectPlan={handleSelectPlan}
           onCreateNewPlan={handleCreateNewPlan}
