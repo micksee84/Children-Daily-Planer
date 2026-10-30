@@ -531,47 +531,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               );
             })()}
 
-            {/* Header Sticker Toggle & Character */}
-            <div className="p-3 rounded-xl border-[1.5px] border-[#2D2200]/30 bg-[#FAF8F0] space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] font-bold text-[#2D2200] flex items-center gap-1.5">
-                  <Sparkles size={15} />
-                  <span>Header Character Sticker</span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={plan.showHeaderSticker}
-                  onChange={(e) =>
-                    onUpdatePlan({ showHeaderSticker: e.target.checked })
-                  }
-                  className="w-4 h-4 rounded accent-[#2D2200]"
-                />
-              </div>
-
-              {plan.showHeaderSticker && (
-                <div>
-                  <label className="block text-[11px] font-bold text-[#2D2200]/70 mb-1">
-                    Select Header Character
-                  </label>
-                  <select
-                    value={plan.headerCharacter}
-                    onChange={(e) =>
-                      onUpdatePlan({
-                        headerCharacter: e.target.value as CharacterSticker['characterKey'],
-                      })
-                    }
-                    className="w-full p-1.5 rounded-lg border border-[#2D2200] bg-white text-[13px] font-bold text-[#2D2200]"
-                  >
-                    {CHARACTERS.map((char) => (
-                      <option key={char.key} value={char.key}>
-                        {char.name} the {char.animal}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
             {/* General Toggles */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between p-2.5 rounded-xl border-[1.5px] border-[#2D2200]/30">

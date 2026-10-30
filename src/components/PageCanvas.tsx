@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { ActivityBlock, CharacterSticker, SchedulePlan } from '../types';
 import { SunshineLogo } from './SunshineLogo';
-import { HeaderCharacterBadge, CharacterStickerItem } from './CharacterStickerItem';
+import { CharacterStickerItem } from './CharacterStickerItem';
+
+/** 0.25in at 96px per inch: the margin kept clear on every edge of the sheet. */
+export const PAGE_MARGIN_PX = 24;
+/** The one spacing used between the header, the planner frame and the footer. */
+export const SECTION_GAP_PX = 16;
 import { DailyRoutineView } from './DailyRoutineView';
 import { WeeklyPlannerView } from './WeeklyPlannerView';
 import { ChecklistView } from './ChecklistView';
@@ -138,28 +143,109 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
           backgroundColor: '#FFFFFF',
           color: '#2D2200',
         }}
-        className={`print-page-container relative bg-white text-[#2D2200] shadow-[0_12px_40px_rgba(45,34,0,0.12)] border-[2px] border-[#2D2200]/20 select-none flex flex-col justify-between overflow-hidden transition-all ${
+        className={`print-page-container relative bg-white text-[#2D2200] shadow-[0_0_0_2px_rgba(45,34,0,0.2),0_12px_40px_rgba(45,34,0,0.12)] select-none flex flex-col overflow-hidden transition-all ${
           plan.dyslexiaFriendly ? 'font-dyslexia' : ''
         } ${isLandscape ? 'landscape' : ''}`}
       >
-        {/* INNER PAGE WRAPPER WITH PRECISE SPECIFIED ANATOMY MARGINS:
-            44px top, 56px sides, 36px bottom, 20px internal gaps */}
+        {/* PAGE LAYOUT
+            Every edge of the sheet keeps a 0.25in (24px) margin, and the header, planner
+            and footer are spaced by the same 16px, so everything lines up on one grid. */}
         <div
-          style={{
-            padding: isLandscape ? '32px 48px 28px 48px' : '44px 56px 36px 56px',
-            gap: '16px',
-          }}
-          className="w-full h-full flex flex-col justify-between relative"
+          style={{ padding: `${PAGE_MARGIN_PX}px`, gap: `${SECTION_GAP_PX}px` }}
+          className="w-full h-full flex flex-col relative"
         >
-          {/* 1. TOP ROW:
-              - Sunshine Brigade logo at left (28-32px tall, sb-logo.svg)
-              - At right: "Name:" with inline edit or 1.5px write-on line */}
-          <div className="flex items-start justify-between shrink-0">
-            <SunshineLogo height={isLandscape ? 64 : 76} />
+          {/* 1. HEADER ROW: logo on the left margin, title and date in the centre, name on the
+              right margin. The two side columns share the leftover width equally, so the title
+              stays centred on the page whatever its length. */}
+          <div
+            className="shrink-0 grid items-center gap-4"
+            style={{ gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)' }}
+          >
+            <div className="justify-self-start">
+              <SunshineLogo height={30} />
+            </div>
 
-            {/* Child Name: Click to edit inline */}
-            <div className="flex items-end gap-2 pt-2">
-              <span className="font-['Nunito'] font-extrabold text-[16px] leading-none text-[#2D2200]">
+            <div
+              className={`flex items-center z-10 ${
+                isLandscape ? 'flex-row gap-4' : 'flex-col gap-1.5'
+              }`}
+            >
+              {/* Title Sticker: Click to edit */}
+              {isEditingTitle && !isPrintMode ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={titleInput}
+                  onChange={(e) => setTitleInput(e.target.value)}
+                  onBlur={handleSaveTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveTitle();
+                    if (e.key === 'Escape') {
+                      setTitleInput(plan.title);
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  className={`ink-sticker-title ${
+                    isLandscape ? 'text-[44px]' : 'text-[40px]'
+                  } font-normal tracking-wide bg-transparent border-b-[2px] border-dashed border-[#2D2200] focus:outline-none w-full`}
+                />
+              ) : (
+                <h1
+                  onClick={(e) => {
+                    if (!isPrintMode) {
+                      e.stopPropagation();
+                      setIsEditingTitle(true);
+                    }
+                  }}
+                  title="Click to edit title"
+                  className={`ink-sticker-title ${
+                    isLandscape ? 'text-[44px]' : 'text-[40px]'
+                  } font-normal tracking-wide cursor-pointer no-print:hover:ring-2 no-print:hover:ring-dashed no-print:hover:ring-[#2D2200] rounded-lg px-1`}
+                >
+                  {plan.title || "My day"}
+                </h1>
+              )}
+
+              {/* Date / Week Range Badge: Click to edit */}
+              {isEditingDate && !isPrintMode ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={dateInput}
+                  onChange={(e) => setDateInput(e.target.value)}
+                  onBlur={handleSaveDate}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveDate();
+                    if (e.key === 'Escape') {
+                      setDateInput(plan.dateRange);
+                      setIsEditingDate(false);
+                    }
+                  }}
+                  className="px-4 py-1 rounded-full bg-white border-[1.5px] border-[#2D2200] shadow-flat-ink font-['Nunito'] font-extrabold text-[13px] text-[#2D2200] focus:outline-none"
+                />
+              ) : (
+                plan.dateRange && (
+                  <div
+                    onClick={(e) => {
+                      if (!isPrintMode) {
+                        e.stopPropagation();
+                        setIsEditingDate(true);
+                      }
+                    }}
+                    title="Click to edit date badge"
+                    className="px-4 py-1 rounded-full bg-white border-[1.5px] border-[#2D2200] shadow-flat-ink flex items-center cursor-pointer no-print:hover:border-dashed"
+                  >
+                    <span className="font-['Nunito'] font-extrabold text-[13px] text-[#2D2200] tracking-wide">
+                      {plan.dateRange}
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Child Name: click to edit inline, or print as a write-on line */}
+            <div className="justify-self-end flex items-end gap-2 min-w-0">
+              <span className="font-['Nunito'] font-extrabold text-[16px] leading-none text-[#2D2200] shrink-0">
                 Name:
               </span>
               {isEditingName && !isPrintMode ? (
@@ -202,105 +288,10 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
                   }}
                   title="Click to type child's name (or print as write-on line)"
                   style={{ borderBottom: '1.5px solid #2D2200' }}
-                  className="w-36 sm:w-44 h-[18px] cursor-pointer no-print:hover:border-dashed no-print:hover:border-[#2D2200]"
+                  className={`${isLandscape ? 'w-56' : 'w-40'} h-[18px] cursor-pointer no-print:hover:border-dashed no-print:hover:border-[#2D2200]`}
                 />
               )}
             </div>
-          </div>
-
-          {/* 2 & 3. TITLE BLOCK & OPTIONAL HEADER CHARACTER STICKER
-              - Ink sticker title (~58px, or adapted for landscape) with inline edit
-              - Date / week badge with inline edit
-              - Character sticker (170–180px) overlapping top of schedule frame by ~64px */}
-          <div className="relative shrink-0 flex items-start justify-between min-h-[90px]">
-            <div className="flex flex-col items-start z-10 max-w-[620px]">
-              {/* Title Sticker: Click to edit */}
-              {isEditingTitle && !isPrintMode ? (
-                <input
-                  type="text"
-                  autoFocus
-                  value={titleInput}
-                  onChange={(e) => setTitleInput(e.target.value)}
-                  onBlur={handleSaveTitle}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveTitle();
-                    if (e.key === 'Escape') {
-                      setTitleInput(plan.title);
-                      setIsEditingTitle(false);
-                    }
-                  }}
-                  className={`ink-sticker-title ${
-                    isLandscape ? 'text-[44px]' : 'text-[54px]'
-                  } font-normal tracking-wide bg-transparent border-b-[2px] border-dashed border-[#2D2200] focus:outline-none w-full`}
-                />
-              ) : (
-                <h1
-                  onClick={(e) => {
-                    if (!isPrintMode) {
-                      e.stopPropagation();
-                      setIsEditingTitle(true);
-                    }
-                  }}
-                  title="Click to edit title"
-                  className={`ink-sticker-title ${
-                    isLandscape ? 'text-[44px]' : 'text-[54px]'
-                  } font-normal tracking-wide cursor-pointer no-print:hover:ring-2 no-print:hover:ring-dashed no-print:hover:ring-[#2D2200] rounded-lg px-1`}
-                >
-                  {plan.title || "My day"}
-                </h1>
-              )}
-
-              {/* Date / Week Range Badge: Click to edit */}
-              {isEditingDate && !isPrintMode ? (
-                <input
-                  type="text"
-                  autoFocus
-                  value={dateInput}
-                  onChange={(e) => setDateInput(e.target.value)}
-                  onBlur={handleSaveDate}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveDate();
-                    if (e.key === 'Escape') {
-                      setDateInput(plan.dateRange);
-                      setIsEditingDate(false);
-                    }
-                  }}
-                  className="mt-1.5 px-4 py-1 rounded-full bg-white border-[1.5px] border-[#2D2200] shadow-flat-ink font-['Nunito'] font-extrabold text-[13px] text-[#2D2200] focus:outline-none"
-                />
-              ) : (
-                plan.dateRange && (
-                  <div
-                    onClick={(e) => {
-                      if (!isPrintMode) {
-                        e.stopPropagation();
-                        setIsEditingDate(true);
-                      }
-                    }}
-                    title="Click to edit date badge"
-                    className="mt-1.5 px-4 py-1 rounded-full bg-white border-[1.5px] border-[#2D2200] shadow-flat-ink flex items-center cursor-pointer no-print:hover:border-dashed"
-                  >
-                    <span className="font-['Nunito'] font-extrabold text-[13px] text-[#2D2200] tracking-wide">
-                      {plan.dateRange}
-                    </span>
-                  </div>
-                )
-              )}
-            </div>
-
-            {/* Header Character Sticker (Overlaps top of schedule frame) */}
-            {plan.showHeaderSticker && (
-              <div
-                style={{
-                  marginTop: '-16px',
-                  // Landscape (weekly) has day names along the top of the frame; overlap less there.
-                  marginBottom: isLandscape ? '-14px' : '-52px',
-                  zIndex: 25,
-                }}
-                className="shrink-0 drop-shadow-md"
-              >
-                <HeaderCharacterBadge characterKey={plan.headerCharacter} />
-              </div>
-            )}
           </div>
 
           {/* 4. SCHEDULE FRAME:
@@ -311,9 +302,6 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
               borderRadius: '20px',
               borderWidth: '3px',
               backgroundColor: '#FFFFFF',
-              // Ink Style: the frame gets extra top padding where the character
-              // badge overlaps it, so the badge never covers the first row.
-              paddingTop: plan.showHeaderSticker && !isLandscape ? '36px' : undefined,
             }}
             className="flex-1 w-full bg-white overflow-hidden relative flex flex-col"
           >
@@ -381,7 +369,7 @@ export const PageCanvas = React.forwardRef<HTMLDivElement, PageCanvasProps>(
               borderTop: '1.5px solid #2D2200',
               letterSpacing: '0.02em',
             }}
-            className="pt-2 flex items-center shrink-0 font-['Nunito'] font-bold text-[12px] text-[#2D2200]"
+            className="pt-2 flex items-center shrink-0 font-['Nunito'] font-bold text-[12px] leading-none text-[#2D2200]"
           >
             <span>Learn. Wonder. Shine.</span>
           </div>

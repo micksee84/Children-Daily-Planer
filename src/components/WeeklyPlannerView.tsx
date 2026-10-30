@@ -38,7 +38,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   const useShort = days.length > 5;
 
   return (
-    <div className="w-full h-full p-2.5 relative">
+    <div className="w-full h-full p-3 relative">
       {plan.blocks.length === 0 && !ghost && !isPrintMode && (
         <div className="no-print absolute inset-0 flex items-center justify-center p-6 text-center pointer-events-none z-10">
           <span className="font-['Nunito'] font-extrabold text-[16px] text-[#2D2200]/60 bg-white px-3 py-1 rounded-full">

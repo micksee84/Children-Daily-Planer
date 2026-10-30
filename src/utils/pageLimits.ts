@@ -25,9 +25,10 @@ export const CHECKLIST_MAX_LANDSCAPE = 7;
  * Returns available vertical space inside the schedule frame in pixels.
  */
 export function getAvailableFrameHeight(orientation: 'portrait' | 'landscape'): number {
-  // Measured from the page layout: Letter page minus margins, logo row, title,
-  // footer and the grid's own padding. Landscape also loses the day-name row.
-  return orientation === 'landscape' ? 470 : 712;
+  // Measured from the page layout: Letter page minus the 0.25in margins, the one-row
+  // header, the footer, the 16px gaps and the grid's own padding. Landscape also loses
+  // the day-name row. Re-measure if the page layout changes.
+  return orientation === 'landscape' ? 604 : 844;
 }
 
 /**
